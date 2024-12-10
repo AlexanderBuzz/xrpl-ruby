@@ -8,5 +8,5 @@ codec = AddressCodec::XrpCodec.new
 # decoded = codec.decode_raw(encoded)
 # puts "Decoded: #{decoded}"
 
-encoded = codec.encode_seed(["4C3A1D213FBDFB14C7C28D609469B341"].pack('H*').bytes)
+encoded = codec.encode_seed(hex_to_bytes("4C3A1D213FBDFB14C7C28D609469B341"))
 puts "Encoded: #{encoded}"

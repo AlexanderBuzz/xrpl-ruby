@@ -63,18 +63,6 @@ module AddressCodec
 
     private
 
-    # TODO: move to Core::Utils or create Buffer?
-    def concat_args(*args)
-      args.flat_map do |arg|
-        is_scalar(arg) ? [arg] : arg.to_a
-      end
-    end
-    def is_scalar(val)
-      val.is_a?(Numeric)
-    end
-
-    # TODO: move to Core::Utils or create Buffer?
-
     def encode_versioned(bytes, versions, expected_length)
       unless check_byte_length(bytes, expected_length)
         raise 'unexpected_payload_length: bytes.length does not match expectedLength. Ensure that the bytes are a Uint8Array.'
@@ -105,14 +93,4 @@ module AddressCodec
 
   end
 
-end
-
-#########
-
-def check_byte_length(bytes, expected_length)
-  if bytes.respond_to?(:byte_length)
-    bytes.byte_length == expected_length
-  else
-    bytes.length == expected_length
-  end
 end
