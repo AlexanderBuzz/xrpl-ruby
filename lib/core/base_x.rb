@@ -1,4 +1,5 @@
 module Core
+
   class BaseX
     def initialize(alphabet)
       @alphabet = alphabet
