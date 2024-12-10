@@ -21,6 +21,15 @@ RSpec.describe AddressCodec::XrpCodec do
 
       expect(encoded).to eq("sn259rEFXrQrWyx3Q7XneWcwV6dfL")
     end
+
+    it 'can encode an AccountID' do
+      encoded = xrp_codec.encode_account_id(
+        hex_to_bytes('BA8E78626EE42C41B46D46C3048DF3A1C3C87072')
+      )
+
+      expect(encoded).to eq('rJrRMgiRgrU6hDF4pgu5DXQdWyPbY35ErN')
+    end
+
   end
 
 end

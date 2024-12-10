@@ -20,7 +20,7 @@ module AddressCodec
       end
 
       opts = {
-        expectedLength: 16,
+        expected_length: 16,
         versions: type == 'ed25519' ? ED25519_SEED : [FAMILY_SEED]
       }
 
@@ -29,11 +29,16 @@ module AddressCodec
     end
 
     def decode_seed(seed, opts = {
-          versionTypes: ['ed25519', 'secp256k1'],
+          version_types: ['ed25519', 'secp256k1'],
           versions: [ED25519_SEED, FAMILY_SEED],
-          expectedLength: 16
+          expected_length: 16
         })
       decode(seed, opts)
+    end
+
+    def encode_account_id(bytes)
+      opts = { versions: [ACCOUNT_ID], expected_length: 20 }
+      encode(bytes, opts)
     end
 
   end

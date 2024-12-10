@@ -12,21 +12,21 @@ module AddressCodec
 
     def encode(bytes, opts)
       versions = opts[:versions]
-      encode_versioned(bytes, versions, opts[:expectedLength])
+      encode_versioned(bytes, versions, opts[:expected_length])
     end
 
     def decode(base58string, opts)
       versions = opts[:versions]
-      types = opts[:versionTypes]
+      types = opts[:version_types]
 
       without_sum = decode_checked(base58string)
 
-      if versions.length > 1 && !opts[:expectedLength]
-        raise 'expectedLength is required because there are >= 2 possible versions'
+      if versions.length > 1 && !opts[:expected_length]
+        raise 'expected_length is required because there are >= 2 possible versions'
       end
 
       version_length_guess = versions[0].is_a?(Numeric) ? 1 : versions[0].length
-      payload_length = opts[:expectedLength] || without_sum.length - version_length_guess
+      payload_length = opts[:expected_length] || without_sum.length - version_length_guess
       version_bytes = without_sum[0...-payload_length]
       payload = without_sum[-payload_length..-1]
 
@@ -65,7 +65,7 @@ module AddressCodec
 
     def encode_versioned(bytes, versions, expected_length)
       unless check_byte_length(bytes, expected_length)
-        raise 'unexpected_payload_length: bytes.length does not match expectedLength. Ensure that the bytes are a Uint8Array.'
+        raise 'unexpected_payload_length: bytes.length does not match expected_length. Ensure that the bytes are a Uint8Array.'
       end
 
       encode_checked(concat_args(versions, bytes))

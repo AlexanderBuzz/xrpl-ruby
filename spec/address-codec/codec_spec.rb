@@ -11,7 +11,7 @@ RSpec.describe AddressCodec::Codec do
       bytes = "123456789".bytes
       encoded = codec.encode(bytes, {
         versions: [0],
-        expectedLength: 9,
+        expected_length: 9,
       })
       expect(encoded).to eq('rnaC7gW34M77Kneb78s')
     end
@@ -24,7 +24,7 @@ RSpec.describe AddressCodec::Codec do
     it 'decode data with expected length' do
       decoded = codec.decode('rnaC7gW34M77Kneb78s', {
         versions: [0],
-        expectedLength: 9,
+        expected_length: 9,
       })
       expect(decoded[:bytes]).to eq("123456789".bytes)
     end
