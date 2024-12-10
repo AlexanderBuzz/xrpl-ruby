@@ -6,7 +6,6 @@ module AddressCodec
 
   class XrpCodec < Codec
 
-
     # base58 encodings: https://xrpl.org/base58-encodings.html
     ACCOUNT_ID = 0            # Account address (20 bytes)
     ACCOUNT_PUBLIC_KEY = 0x23 # Account public key (33 bytes)
@@ -39,6 +38,40 @@ module AddressCodec
     def encode_account_id(bytes)
       opts = { versions: [ACCOUNT_ID], expected_length: 20 }
       encode(bytes, opts)
+    end
+
+    def decode_account_id(account_id)
+      opts = { versions: [ACCOUNT_ID], expected_length: 20 }
+      decode(account_id, opts)[:bytes]
+    end
+
+    def decode_node_public(base58string)
+      opts = { versions: [NODE_PUBLIC], expected_length: 33 }
+      decode(base58string, opts)[:bytes]
+    end
+
+    def encode_node_public(bytes)
+      opts = { versions: [NODE_PUBLIC], expected_length: 33 }
+      encode(bytes, opts)
+    end
+
+    def encode_account_public(bytes)
+      opts = { versions: [ACCOUNT_PUBLIC_KEY], expected_length: 33 }
+      encode(bytes, opts)
+    end
+
+    def decode_account_public(base58string)
+      opts = { versions: [ACCOUNT_PUBLIC_KEY], expected_length: 33 }
+      decode(base58string, opts)[:bytes]
+    end
+
+    def valid_classic_address?(address)
+      begin
+        decode_account_id(address)
+      rescue
+        return false
+      end
+      true
     end
 
   end

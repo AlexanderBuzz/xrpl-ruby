@@ -40,6 +40,8 @@ module AddressCodec
           }
         end
       end
+
+      raise 'version_invalid: version bytes do not match any of the provided version(s)'
     end
 
     def encode_checked(bytes)
@@ -55,7 +57,7 @@ module AddressCodec
       end
 
       unless verify_check_sum(bytes)
-        raise 'Checksum does not validate'
+        raise 'checksum_invalid'
       end
 
       bytes[0...-4]

@@ -3,7 +3,7 @@ require_relative 'base_x'
 require_relative 'base_58_xrp'
 
 def bytes_to_hex(bytes)
-  bytes.pack('C*').unpack1('H*')
+  bytes.pack('C*').unpack1('H*').upcase
 end
 
 def hex_to_bytes(hex)
@@ -15,7 +15,7 @@ def hex_to_bin(hex)
 end
 
 def bin_to_hex(bin)
-  bin.unpack("H*").first
+  bin.unpack("H*").first.upcase
 end
 
 def check_byte_length(bytes, expected_length)
@@ -28,10 +28,10 @@ end
 
 def concat_args(*args)
   args.flat_map do |arg|
-    is_scalar(arg) ? [arg] : arg.to_a
+    is_scalar?(arg) ? [arg] : arg.to_a
   end
 end
 
-def is_scalar(val)
+def is_scalar?(val)
   val.is_a?(Numeric)
 end
