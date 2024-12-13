@@ -35,3 +35,13 @@ end
 def is_scalar?(val)
   val.is_a?(Numeric)
 end
+
+#def equal?(bytes1, bytes2)
+#  return false unless bytes1.length == bytes2.length
+#
+#  bytes1.each_with_index do |byte, index|
+#    return false unless byte == bytes2[index]
+#  end
+#
+#  true
+#end

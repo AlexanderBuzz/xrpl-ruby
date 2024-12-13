@@ -45,6 +45,73 @@ module AddressCodec
       encode_checked(bytes)
     end
 
+    def x_address_to_classic_address(x_address)
+      decoded = decode_x_address(x_address)
+      account_id = decoded[:account_id]
+      tag = decoded[:tag]
+      test = decoded[:test]
+      classic_address = encode_account_id(account_id)
+      {
+        classic_address: classic_address,
+        tag: tag,
+        test: test
+      }
+    end
+
+    def decode_x_address(x_address)
+      decoded = decode_checked(x_address)
+      test = is_uint8_array_for_test_address(decoded)
+      account_id = decoded[2, 20]
+      tag = tag_from_uint8_array(decoded)
+      {
+        account_id: account_id,
+        tag: tag,
+        test: test
+      }
+    end
+
+    def valid_x_address?(x_address)
+      begin
+        decode_x_address(x_address)
+      rescue
+        return false
+      end
+      true
+    end
+
+    private
+
+    def is_uint8_array_for_test_address(buf)
+      decoded_prefix = buf[0, 2]
+      if equal?(PREFIX_BYTES[:main], decoded_prefix)
+        return false
+      end
+      if equal?(PREFIX_BYTES[:test], decoded_prefix)
+        return true
+      end
+
+      raise 'Invalid X-address: bad prefix'
+    end
+
+    def tag_from_uint8_array(bytes)
+      flag = bytes[22]
+      if flag >= 2
+        # Keine Unterstützung für 64-Bit-Tags zu diesem Zeitpunkt
+        raise 'Unsupported X-address'
+      end
+      if flag == 1
+        # Little-endian zu Big-endian
+        return bytes[23] + bytes[24] * 0x100 + bytes[25] * 0x10000 + bytes[26] * 0x1000000
+      end
+      if flag != 0
+        raise 'flag must be zero to indicate no tag'
+      end
+      if '0000000000000000' !=  bytes_to_hex(bytes[23, 8])
+        raise 'remaining bytes must be zero'
+      end
+      false
+    end
+
   end
 
 end
