@@ -17,7 +17,7 @@ module AddressCodec
 
     def encode_x_address(account_id, tag, test)
       if account_id.length != 20
-        # RIPEMD160 ist 160 Bits = 20 Bytes
+        # RIPEMD160 -> 160 Bits = 20 Bytes
         raise 'Account ID must be 20 bytes'
       end
       if tag != false && tag > MAX_32_BIT_UNSIGNED_INT
@@ -83,10 +83,10 @@ module AddressCodec
 
     def is_uint8_array_for_test_address(buf)
       decoded_prefix = buf[0, 2]
-      if equal?(PREFIX_BYTES[:main], decoded_prefix)
+      if decoded_prefix == PREFIX_BYTES[:main]
         return false
       end
-      if equal?(PREFIX_BYTES[:test], decoded_prefix)
+      if decoded_prefix == PREFIX_BYTES[:test]
         return true
       end
 
