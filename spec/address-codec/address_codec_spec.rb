@@ -32,12 +32,12 @@ RSpec.describe AddressCodec::AddressCodec do
 
     it "can encode an xAddress" do
       @address_test_cases.each { |test_case|
-        classic_address = test_case[0]
+        account_id = address_codec.decode_account_id(test_case[0])
         tag = test_case[1] == false ? false : test_case[1]
         x_address = test_case[2]
         x_address_test = test_case[3]
-        expect(address_codec.encode_x_address(classic_address, tag, false)).to eq(x_address)
-        expect(address_codec.encode_x_address(classic_address, tag, true)).to eq(x_address_test)
+        expect(address_codec.encode_x_address(account_id, tag, false)).to eq(x_address)
+        expect(address_codec.encode_x_address(account_id, tag, true)).to eq(x_address_test)
       }
     end
 
