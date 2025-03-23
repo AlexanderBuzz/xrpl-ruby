@@ -8,7 +8,7 @@ module BinaryCodec
 
     def initialize(hex_bytes = '')
       @bytes = hex_to_bytes(hex_bytes)
-      @definitions = Definitions.new
+      @definitions = Definitions.instance
     end
 
     def peek

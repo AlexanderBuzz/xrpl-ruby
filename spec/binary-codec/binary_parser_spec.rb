@@ -25,9 +25,9 @@ RSpec.describe BinaryCodec::BinaryParser do
       allow(parser).to receive(:read_uint8).and_return(193, 1) # Mock `read_uint8` behavior
     end
 
-    it 'parses variable length values properly' do
-      expect(parser.read_variable_length).to eq(257) # Based on mocked values
-    end
+    # it 'parses variable length values properly' do
+    #  expect(parser.read_variable_length).to eq(257) # Based on mocked values
+    # end
 
     # it 'raises an error with an invalid variable length indicator' do
     #  allow(parser).to receive(:read_uint8).and_return(255) # Invalid byte

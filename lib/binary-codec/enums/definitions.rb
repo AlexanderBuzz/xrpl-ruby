@@ -5,7 +5,7 @@ module BinaryCodec
 
   class Definitions
 
-    # attr_reader :type_ordinals, :ledger_entry_types, :transaction_results, :transaction_types, :field_info_map, :field_id_name_map, :field_header_map
+    @@instance = nil
 
      def initialize
       file_path = File.join(__dir__, 'definitions.json') #
@@ -43,6 +43,10 @@ module BinaryCodec
       raise "Error: The file '#{file_path}' contains invalid JSON: #{e.message}"
 
      end
+
+    def self.instance
+      @@instance ||= new
+    end
 
      def get_field_header_from_name(field_name)
        @field_header_map[field_name]
