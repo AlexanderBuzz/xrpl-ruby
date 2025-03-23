@@ -56,5 +56,7 @@ build-iPhoneSimulator/
 # .rubocop-https?--*
 
 # Project specific
+.editorconfig
 TODO.md
 /_scripts
+/_docs
