@@ -7,15 +7,21 @@ def bytes_to_hex(bytes)
 end
 
 def hex_to_bytes(hex)
+  raise ArgumentError, 'Invalid hex string' unless valid_hex?(hex)
   [hex].pack('H*').bytes
 end
 
 def hex_to_bin(hex)
+  raise ArgumentError, 'Invalid hex string' unless valid_hex?(hex)
   [hex].pack("H*")
 end
 
 def bin_to_hex(bin)
   bin.unpack("H*").first.upcase
+end
+
+def valid_hex?(str)
+  str =~ /\A[0-9a-fA-F]*\z/ && str.length.even?
 end
 
 def check_byte_length(bytes, expected_length)
