@@ -1,14 +1,22 @@
 # @!attribute
 require_relative 'base_x'
 require_relative 'base_58_xrp'
+require 'securerandom'
+
+def random_bytes(size)
+  SecureRandom.random_bytes(size).bytes
+end
 
 def bytes_to_hex(bytes)
   bytes.pack('C*').unpack1('H*').upcase
 end
-
 def hex_to_bytes(hex)
   raise ArgumentError, 'Invalid hex string' unless valid_hex?(hex)
   [hex].pack('H*').bytes
+end
+
+def bin_to_hex(bin)
+  bin.unpack("H*").first.upcase
 end
 
 def hex_to_bin(hex)
@@ -16,8 +24,13 @@ def hex_to_bin(hex)
   [hex].pack("H*")
 end
 
-def bin_to_hex(bin)
-  bin.unpack("H*").first.upcase
+def hex_to_string(hex, encoding = 'utf-8')
+  raise ArgumentError, 'Invalid hex string' unless valid_hex?(hex)
+  hex_to_bin(hex).force_encoding(encoding).encode('utf-8')
+end
+
+def string_to_hex(string)
+  string.unpack1('H*').upcase
 end
 
 def valid_hex?(str)
