@@ -7,7 +7,7 @@ module BinaryCodec
       @bytes = bytes
       @width = width
       if bytes.length != @width
-        raise StandardError, "Invalid Hash length #{bytes.length}"
+        raise StandardError, "Invalid Hash length #{bytes.length} for width #{@width}"
       end
     end
 
