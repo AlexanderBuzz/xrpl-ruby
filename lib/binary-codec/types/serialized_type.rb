@@ -17,10 +17,17 @@ module BinaryCodec
       raise NotImplementedError, 'from_parser not implemented'
     end
 
-    def self.from_hex(hex) y
-      from_bytes(hex_to_bytes(bytes))
+    # Check if this is needed
+    def self.from_json(json)
+      raise NotImplementedError, 'from_parser not implemented'
     end
 
+    # Check if this is needed
+    def self.from_hex(hex)
+      from_bytes(hex_to_bytes(hex))
+    end
+
+    # Check if this is needed
     def self.from_bytes(bytes)
       new(bytes)
     end
@@ -39,7 +46,7 @@ module BinaryCodec
     # Convert to a hex string
     # @return [String] - Hexadecimal representation of the serialized data
     def to_hex
-      to_bytes.map { |byte| format('%02x', byte) }.join
+      bytes_to_hex(to_bytes)
     end
 
     def to_json(_definitions = nil, _field_name = nil)
@@ -55,8 +62,8 @@ module BinaryCodec
       type_map = {
         #"AccountID" => AccountId,
         #"Amount" => Amount,
-        #"Blob" => Blob,
-        #"Currency" => Currency,
+        "Blob" => Blob,
+        "Currency" => Currency,
         "Hash128" => Hash128,
         "Hash160" => Hash160,
         "Hash256" => Hash256,

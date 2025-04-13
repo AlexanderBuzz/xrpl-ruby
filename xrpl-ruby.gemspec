@@ -1,6 +1,6 @@
 Gem::Specification.new do |spec|
   spec.name          = "xrpl-ruby"
-  spec.version       = "0.1.1"
+  spec.version       = "0.2.1"
   spec.authors       = ["Alexander Busse"]
   spec.email         = ["dev@ledger-direct.com"]
 
