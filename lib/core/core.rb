@@ -54,3 +54,19 @@ end
 def is_scalar?(val)
   val.is_a?(Numeric)
 end
+
+def int_to_bytes(number, width = 1, byteorder = :big)
+  bytes = []
+  while number > 0
+    bytes << (number & 0xFF) # Extract the lowest 8 bits (1 byte)
+    number >>= 8             # Shift the number 8 bits to the right
+  end
+
+  # Ensure the result has at least `width` bytes (pad with zeroes if necessary)
+  while bytes.size < width
+    bytes << 0
+  end
+
+  bytes.reverse! if byteorder == :big
+  bytes
+end
