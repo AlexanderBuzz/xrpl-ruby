@@ -16,7 +16,7 @@ module BinaryCodec
       new(hex_to_bytes(hex_string))
     end
 
-    def from_parser(parser, hint = nil)
+    def self.from_parser(parser, hint = nil)
       new(parser.read(hint || width))
     end
 
