@@ -29,7 +29,7 @@ module BinaryCodec
 
     # Construct an amount from an IOU, MPT, or string amount
     #
-    # @param value [Amount, Hash (representing IOU or MPT), or String] representing the amount
+    # @param value [Amount, Hash, String] representing the amount
     # @return [Amount] an Amount object
     def self.from(value)
       return value if value.is_a?(Amount)
@@ -59,12 +59,11 @@ module BinaryCodec
         if number.zero?
           amount[0] |= 0x80
         else
-          exponent = (number.exponent || 0) - 15
-          integer_number_string = (number * BigDecimal("10") ** -exponent)
-                                    .abs
-                                    .to_s('F') # Convert to string without scientific notation
+          scale = number.frac.to_s('F').split('.').last.size
+          unscaled_value = (number * (10**scale)).to_i
+          int_string = unscaled_value.abs.to_s.ljust(16, '0')
+          num = int_string.to_i
 
-          num = integer_number_string.to_i
           int_buf = [Array.new(4, 0), Array.new(4, 0)]
           BinaryCodec.write_uint32be(int_buf[0], (num >> 32) & 0xFFFFFFFF)
           BinaryCodec.write_uint32be(int_buf[1], num & 0xFFFFFFFF)
@@ -77,6 +76,7 @@ module BinaryCodec
             amount[0] |= 0x40
           end
 
+          exponent = number.exponent - 16
           exponent_byte = 97 + exponent
           amount[0] |= exponent_byte >> 2
           amount[1] |= (exponent_byte & 0x03) << 6
@@ -245,19 +245,18 @@ module BinaryCodec
     end
 
     # Ensure that the value, after being multiplied by the exponent, does not
-    # contain a decimal.
+    # contain a decimal. This function is typically used to validate numbers
+    # that need to be represented as precise integers after scaling, such as
+    # amounts in financial transactions.
     #
     # @param decimal [BigDecimal] A BigDecimal object
     # @raise [ArgumentError] if the value contains a decimal
     # @return [String] The decimal converted to a string without a decimal point
     def self.verify_no_decimal(decimal)
-      factor = 10 ** decimal.exponent
-      int_string = (decimal * factor).to_i.to_s
+      exponent = -((decimal.exponent || 0) - 16)
+      scaled_decimal = decimal * 10 ** exponent
 
-      # Check if the string contains a decimal point
-      if int_string.include?('.')
-        raise 'Decimal place found in integer_number_string'
-      end
+        raise ArgumentError, 'Decimal place found in int_string' unless scaled_decimal.frac == 0
     end
 
     # Check if this amount is in units of Native Currency (XRP)

@@ -58,5 +58,6 @@ build-iPhoneSimulator/
 # Project specific
 .editorconfig
 TODO.md
+/ts_source
 /_scripts
 /_docs
