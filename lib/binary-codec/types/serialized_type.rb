@@ -49,6 +49,11 @@ module BinaryCodec
       bytes_to_hex(to_bytes)
     end
 
+    # Deserialize instance data and convert it to JSON string
+    #
+    # @param _definitions [Hash] - Definitions for serialization
+    # @param _field_name [String] - Field name for serialization
+    # @return [String] - JSON representation of the serialized data
     def to_json(_definitions = nil, _field_name = nil)
       to_hex
     end

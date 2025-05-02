@@ -136,13 +136,13 @@ module BinaryCodec
 
         mantissa[0] = 0
         mantissa[1] &= 0x3f
-        value = BigDecimal("#{sign}0x#{bytes_to_hex(mantissa)}") * BigDecimal("1e#{exponent}")
-        self.assert_iou_is_valid(value)
+        value = BigDecimal("#{sign}#{bytes_to_hex(mantissa).to_i(16)}") * BigDecimal("1e#{exponent}")
+        self.class.assert_iou_is_valid(value)
 
         return {
-          value: value.to_s,
-          currency: currency.to_json,
-          issuer: issuer.to_json
+          "value" => value.to_s('F'),
+          "currency" => currency.to_json,
+          "issuer" => issuer.to_json
         }.to_s
       end
 

@@ -10,6 +10,7 @@ require 'binary-codec/types/hash'
 require 'binary-codec/types/account_id'
 require 'binary-codec/types/currency'
 require 'binary-codec/types/amount'
+require 'json'
 
 Amount = BinaryCodec::Amount
 
@@ -71,16 +72,13 @@ RSpec.describe BinaryCodec::Amount do
       it 'decodes the hex representation to the expected JSON Amount object' do
         hex = "D48775F05A07400000000000000000000000000055534400000000008B1CE810C13D6F337DAC85863B3D70265A24DF44"
         json = { "value" => "2.1", "currency" => "USD", "issuer" => "rDgZZ3wyprx4ZqrGQUkquE9Fs2Xs8XBcdw" }
-
-        expect(Amount.from_hex(hex).to_json).to eq(json)
+        expect(Amount.from_hex(hex).to_json).to eq(json.to_s)
 
         hex = "D5077F08AFCEB4C000000000000000000000000055534400000000008B1CE810C13D6F337DAC85863B3D70265A24DF44"
         json = { "value" => "211.0000123", "currency" => "USD", "issuer" => "rDgZZ3wyprx4ZqrGQUkquE9Fs2Xs8XBcdw" }
-
-        expect(Amount.from_hex(hex).to_json).to eq(json)
+        expect(Amount.from_hex(hex).to_json).to eq(json.to_s)
       end
     end
   end
-
 
 end
