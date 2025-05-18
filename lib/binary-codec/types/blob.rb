@@ -23,7 +23,7 @@ module BinaryCodec
     end
 
     def self.from_parser(parser, hint = nil)
-      Blob.new(parser.get_bytes(hint))
+      Blob.new(parser.read(hint))
     end
 
   end

@@ -1,4 +1,5 @@
 # spec/binary_codec/binary_parser_spec.rb
+#
 require 'binary-codec/enums/fields'
 require 'binary-codec/enums/definitions'
 require 'binary-codec/serdes/binary_parser'

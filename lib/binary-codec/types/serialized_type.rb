@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative '../../core/core'
+
 module BinaryCodec
   class SerializedType
 
@@ -13,7 +15,7 @@ module BinaryCodec
       raise NotImplementedError, 'from not implemented'
     end
 
-    def self.from_parser(parser, hint = nil)
+    def self.from_parser(parser, size_hint = nil)
       raise NotImplementedError, 'from_parser not implemented'
     end
 
@@ -24,7 +26,7 @@ module BinaryCodec
 
     # Check if this is needed
     def self.from_hex(hex)
-      from_bytes(hex_to_bytes(hex))
+      self.from_bytes(hex_to_bytes(hex))
     end
 
     # Check if this is needed
@@ -46,6 +48,7 @@ module BinaryCodec
     # Convert to a hex string
     # @return [String] - Hexadecimal representation of the serialized data
     def to_hex
+      puts "ST to_hex / to_bytes: #{@bytes}"
       bytes_to_hex(to_bytes)
     end
 
@@ -65,20 +68,20 @@ module BinaryCodec
 
     def self.get_type_by_name(name)
       type_map = {
-        #"AccountID" => AccountId,
-        #"Amount" => Amount,
+        "AccountID" => AccountId,
+        "Amount" => Amount,
         "Blob" => Blob,
         "Currency" => Currency,
         "Hash128" => Hash128,
         "Hash160" => Hash160,
         "Hash256" => Hash256,
         #"PathSet" => PathSet,
-        #"STArray" => StArray,
-        #"STObject" => StObject,
-        #"UInt8" => UnsignedInt8,
-        #"UInt16" => UnsignedInt16,
-        #"UInt32" => UnsignedInt32,
-        #"UInt64" => UnsignedInt64,
+        #"STArray" => STArray,
+        "STObject" => STObject,
+        "UInt8" => Uint8,
+        "UInt16" => Uint16,
+        "UInt32" => Uint32,
+        "UInt64" => Uint64,
         #"Vector256" => Vector256
       }
 
@@ -86,8 +89,8 @@ module BinaryCodec
         raise "unsupported type #{name}"
       end
 
-      # Return class instance
-      type_map[name].new
+      # Return class
+      type_map[name]
     end
 
   end

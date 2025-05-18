@@ -102,7 +102,7 @@ module BinaryCodec
         end
       end
 
-      new FieldHeader(type: type, nth: nth) # (type << 16) | nth for read_field_ordinal
+      FieldHeader.new(type: type, nth: nth) # (type << 16) | nth for read_field_ordinal
     end
 
     def read_field
@@ -121,13 +121,15 @@ module BinaryCodec
     end
 
     def read_field_value(field)
-      type = type_for_field(field)
+      type = SerializedType.get_type_by_name(field.type)
+
       if type.nil?
         raise StandardError.new("unsupported: (#{field.name}, #{field.type.name})")
       end
 
       size_hint = field.is_variable_length_encoded ? read_variable_length_length : nil
       value = type.from_parser(self, size_hint)
+      puts "read_field_value: #{field.name} -> #{value}"
 
       if value.nil?
         raise StandardError.new("from_parser for (#{field.name}, #{field.type.name}) -> nil")

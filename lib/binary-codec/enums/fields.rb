@@ -12,19 +12,20 @@ module BinaryCodec
     end
 
     def to_bytes
+      header = []
       if type < 16
         if nth < 16
-          header << ((type << 4) | nth)
+          header.push((type << 4) | nth)
         else
-          header << (type << 4) << nth
+          header.push(type << 4, nth)
         end
       elsif nth < 16
-        header << nth << type
+        header.push(nth,type)
       else
-        header << 0 << type << nth
+        header.push(0, type, nth)
       end
-
-      header.pack('C*')
+      puts "HEADER: #{header.inspect}"
+      header
     end
 
   end
@@ -82,8 +83,7 @@ module BinaryCodec
 
     # Dummy build_field method (must be implemented elsewhere)
     def build_field(field, type_ordinal)
-      # Logic for building the field would go here.
-      # This is a placeholder to make the example functional.
+      field_header = FieldHeader.new(type: field[1].type, nth: field[1].nth)
       FieldInstance.new(
         nth: field[1].nth,
         is_variable_length_encoded: field[1].is_vl_encoded,
@@ -92,8 +92,9 @@ module BinaryCodec
         type: field[1].type,
         ordinal: type_ordinal,
         name: field[0],
-        header: [],
+        header: field_header,
         associated_type: SerializedType
+        #associated_type: SerializedType.get_type_by_name(field[1].type)
       )
     end
   end

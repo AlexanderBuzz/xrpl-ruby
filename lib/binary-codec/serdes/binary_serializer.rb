@@ -24,18 +24,20 @@ module BinaryCodec
     end
 
     def write_field_and_value(field, value, is_unl_modify_workaround = false)
-      associated_value = field.associated_type.from(value)
+      field_header = FieldHeader.new(type: field.header.type, nth: field.nth)
+      type_class = SerializedType.get_type_by_name(field.type)
+      associated_value = type_class.from(value)
 
-      if !associated_value.respond_to?(:to_bytes_sink) || field.name.nil?
+      if !associated_value.respond_to?(:to_byte_sink) || field.name.nil?
         raise 'Error'
       end
 
-      @sink.put(field.header)
+      @sink.put(field_header.to_bytes)
 
       if field.is_variable_length_encoded
         write_length_encoded(associated_value, is_unl_modify_workaround)
       else
-        associated_value.to_bytes_sink(@sink)
+        associated_value.to_byte_sink(@sink)
       end
     end
 
@@ -44,7 +46,7 @@ module BinaryCodec
 
       unless is_unl_modify_workaround
         # This part doesn't happen for the Account field in a UNLModify transaction
-        value.to_bytes_sink(bytes)
+        value.to_byte_sink(bytes)
       end
 
       self.put(encode_variable_length(bytes.get_length))
