@@ -48,7 +48,6 @@ module BinaryCodec
     # Convert to a hex string
     # @return [String] - Hexadecimal representation of the serialized data
     def to_hex
-      puts "ST to_hex / to_bytes: #{@bytes}"
       bytes_to_hex(to_bytes)
     end
 

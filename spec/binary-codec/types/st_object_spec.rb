@@ -22,10 +22,7 @@ STObject = BinaryCodec::STObject
 
 RSpec.describe BinaryCodec::STObject do
 
-    Memo = {
-      "MemoType": "687474703A2F2F6578616D706C652E636F6D2F6D656D6F2F67656E65726963",
-      "MemoData": "72656E74"
-    }
+  MemoJson = '{"Memo":{"MemoType":"687474703A2F2F6578616D706C652E636F6D2F6D656D6F2F67656E65726963","MemoData":"72656E74"}}'
     MemoHex = "EA7C1F687474703A2F2F6578616D706C652E636F6D2F6D656D6F2F67656E657269637D0472656E74E1"
 
   before do
@@ -38,7 +35,7 @@ RSpec.describe BinaryCodec::STObject do
 
   describe 'STObject' do
     it 'decodes STObject' do
-      expect(STObject.from_hex(MemoHex).to_json).to eq(Memo.to_s)
+      expect(STObject.from_hex(MemoHex).to_json).to eq(MemoJson)
     end
 
     #it 'decodes STObject' do

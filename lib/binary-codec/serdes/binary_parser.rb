@@ -129,7 +129,6 @@ module BinaryCodec
 
       size_hint = field.is_variable_length_encoded ? read_variable_length_length : nil
       value = type.from_parser(self, size_hint)
-      puts "read_field_value: #{field.name} -> #{value}"
 
       if value.nil?
         raise StandardError.new("from_parser for (#{field.name}, #{field.type.name}) -> nil")

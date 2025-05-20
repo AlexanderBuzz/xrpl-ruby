@@ -48,10 +48,12 @@ module BinaryCodec
       until parser.end?
         field = parser.read_field
         break if field.name == OBJECT_END_MARKER # Break if the object end marker is reached
-        accumulator[field.name] = parser.read_field_value(field).to_json
+        value = parser.read_field_value(field).to_json
+        value = JSON.parse(value) if field.type == ST_OBJECT || field.type == Amount
+        accumulator[field.name] = value
       end
 
-      accumulator
+      JSON.generate(accumulator)
     end
 
   end

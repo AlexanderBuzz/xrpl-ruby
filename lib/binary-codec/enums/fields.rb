@@ -24,7 +24,7 @@ module BinaryCodec
       else
         header.push(0, type, nth)
       end
-      puts "HEADER: #{header.inspect}"
+
       header
     end
 
