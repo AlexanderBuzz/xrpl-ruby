@@ -247,7 +247,7 @@ module BinaryCodec
     # Ensure that the value, after being multiplied by the exponent, does not
     # contain a decimal. This function is typically used to validate numbers
     # that need to be represented as precise integers after scaling, such as
-    # amounts in financial transactions.
+    # amounts in financial transactions. Example failure:1.1234567891234567
     #
     # @param decimal [BigDecimal] A BigDecimal object
     # @raise [ArgumentError] if the value contains a decimal

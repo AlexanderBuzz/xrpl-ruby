@@ -81,4 +81,11 @@ RSpec.describe BinaryCodec::Amount do
     end
   end
 
+  describe 'edge cases' do
+    it 'throws on invalid representations' do
+      json = { "value" => "1.1234567891234567", "currency" => "USD", "issuer" => "rDgZZ3wyprx4ZqrGQUkquE9Fs2Xs8XBcdw" }.transform_keys(&:to_sym)
+      expect{ Amount.from(json).to_hex }.to raise_error(ArgumentError, "Decimal precision out of range")
+    end
+  end
+
 end
