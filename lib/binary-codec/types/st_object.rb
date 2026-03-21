@@ -55,7 +55,9 @@ module BinaryCodec
         field
       end.select(&:is_serialized).sort_by(&:ordinal)
 
-      sorted_fields = sorted_fields.select(&filter) if filter
+      if filter
+        sorted_fields = sorted_fields.select { |f| filter.call(f.name) }
+      end
 
       sorted_fields.each do |field|
         associated_value = processed_value[field.name]

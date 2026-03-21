@@ -9,6 +9,7 @@ require_relative 'address-codec/codec'
 require_relative 'address-codec/xrp_codec'
 require_relative 'address-codec/address_codec'
 
+require_relative 'binary-codec/enums/constants'
 require_relative 'binary-codec/utilities'
 require_relative 'binary-codec/enums/fields'
 require_relative 'binary-codec/enums/definitions'
@@ -28,6 +29,9 @@ require_relative 'binary-codec/types/vector256'
 require_relative 'binary-codec/types/path_set'
 require_relative 'binary-codec/types/issue'
 require_relative 'binary-codec/types/xchain_bridge'
+require_relative 'binary-codec/binary_codec'
+
+require_relative 'wallet/wallet'
 
 require_relative 'key-pairs/ed25519'
 require_relative 'key-pairs/secp256k1'

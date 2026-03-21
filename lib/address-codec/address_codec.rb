@@ -31,11 +31,11 @@ module AddressCodec
         # RIPEMD160 -> 160 Bits = 20 Bytes
         raise 'Account ID must be 20 bytes'
       end
-      if tag != false && tag > MAX_32_BIT_UNSIGNED_INT
+      if tag && tag != false && tag > MAX_32_BIT_UNSIGNED_INT
         raise 'Invalid tag'
       end
       the_tag = tag || 0
-      flag = tag == false || tag.nil? ? 0 : 1
+      flag = (tag == false || tag.nil?) ? 0 : 1
 
       bytes = concat_args(
         test ? PREFIX_BYTES[:test] : PREFIX_BYTES[:main],

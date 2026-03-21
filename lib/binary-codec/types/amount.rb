@@ -97,8 +97,9 @@ module BinaryCodec
     # @return [Amount] An Amount bundle exec rspec spec/binary-codec/types/st_object_spec.rb object
     # Creates an Amount instance from a parser.
     # @param parser [BinaryParser] The parser to read from.
+    # @param _size_hint [Integer, nil] Optional size hint (unused).
     # @return [Amount] The created instance.
-    def self.from_parser(parser)
+    def self.from_parser(parser, _size_hint = nil)
       is_iou = parser.peek & 0x80 != 0
       return Amount.new(parser.read(48)) if is_iou
 

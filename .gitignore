@@ -1,61 +1,47 @@
 /.idea
-
 *.gem
 *.rbc
-/.config
+
+# Runtime
+/vendor/
+/.bundle/
+.bundle/config
+.bundle/bin/
+.bundle/ruby/
+Gemfile.lock
+.ruby-version
+.ruby-gemset
+.rvmrc
+
+# Tests and Coverage
 /coverage/
-/InstalledFiles
-/pkg/
 /spec/reports/
 /spec/examples.txt
-/test/tmp/
-/test/version_tmp/
+.rspec_status
 /tmp/
+/test/tmp/
 
-# Used by dotenv library to load environment variables.
-# .env
-
-# Ignore Byebug command history file.
-.byebug_history
-
-## Specific to RubyMotion:
-.dat*
-.repl_history
-build/
-*.bridgesupport
-build-iPhoneOS/
-build-iPhoneSimulator/
-
-## Specific to RubyMotion (use of CocoaPods):
-#
-# We recommend against adding the Pods directory to your .gitignore. However
-# you should judge for yourself, the pros and cons are mentioned at:
-# https://guides.cocoapods.org/using/using-cocoapods.html#should-i-check-the-pods-directory-into-source-control
-#
-# vendor/Pods/
-
-## Documentation cache and generated files:
-/.yardoc/
+# Documentation
 /_yardoc/
+/.yardoc/
 /doc/
 /rdoc/
 
-## Environment normalization:
-/.bundle/
-/vendor/bundle
-/lib/bundler/man/
+# Local configuration
+.env
+.env.*
+.byebug_history
+.repl_history
 
-# for a library or gem, you might want to ignore these files since the code is
-# intended to run in multiple environments; otherwise, check them in:
-# Gemfile.lock
-# .ruby-version
-# .ruby-gemset
-
-# unless supporting rvm < 1.11.0 or doing something fancy, ignore this:
-.rvmrc
-
-# Used by RuboCop. Remote config files pulled in from inherit_from directive.
-# .rubocop-https?--*
+# Editor/Vim files
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-v][a-z]
+[._]sw[a-p]
+*~
+*.un~
+Session.vim
+.netrwhist
 
 # Project specific
 .editorconfig
@@ -63,3 +49,14 @@ TODO.md
 /ts_source
 /_scripts
 /_docs
+the_work.jpg
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+ehthumbs.db
+Thumbs.db
