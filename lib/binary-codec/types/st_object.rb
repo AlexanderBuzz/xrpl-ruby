@@ -17,6 +17,11 @@ module BinaryCodec
       @bytes = byte_buf || Array.new(0)
     end
 
+    # Creates a new STObject instance from a value.
+    # @param value [STObject, String, Array<Integer>, Hash] The value to convert.
+    # @param filter [Proc, nil] Optional filter for fields.
+    # @param definitions [Definitions, nil] Optional definitions.
+    # @return [STObject] The created instance.
     def self.from(value, filter = nil, definitions = nil)
       return value if value.is_a?(STObject)
       definitions ||= Definitions.instance

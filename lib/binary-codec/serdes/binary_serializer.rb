@@ -7,22 +7,35 @@ module BinaryCodec
       @sink = sink || BytesList.new
     end
 
+    # Serializes a value into the sink.
+    # @param value [SerializedType] The value to write.
     def write(value)
       value.to_byte_sink(@sink)
     end
 
+    # Adds raw bytes to the sink.
+    # @param bytes [Array<Integer>] The bytes to add.
     def put(bytes)
       @sink.put(bytes)
     end
 
+    # Serializes a value of a given type.
+    # @param type [Class] The class of the type (subclass of SerializedType).
+    # @param value [Object] The value to serialize.
     def write_type(type, value)
       write(type.from(value))
     end
 
+    # Writes a BytesList into the sink.
+    # @param bytes_list [BytesList] The bytes list to write.
     def write_bytes_list(bytes_list)
       bytes_list.to_byte_sink(@sink)
     end
 
+    # Writes a field and its value into the sink.
+    # @param field [FieldInstance] The field to write.
+    # @param value [Object] The value of the field.
+    # @param is_unl_modify_workaround [Boolean] Whether to apply the UNLModify workaround.
     def write_field_and_value(field, value, is_unl_modify_workaround = false)
       field_header = field.header
       associated_value = field.associated_type.from(value)
@@ -36,6 +49,9 @@ module BinaryCodec
       end
     end
 
+    # Writes a value with its length encoded prefix.
+    # @param value [SerializedType] The value to write.
+    # @param is_unl_modify_workaround [Boolean] Whether to apply the UNLModify workaround.
     def write_length_encoded(value, is_unl_modify_workaround = false)
       bytes = BytesList.new
 

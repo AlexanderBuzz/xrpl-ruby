@@ -2,6 +2,8 @@
 
 module BinaryCodec
   class Hash < ComparableSerializedType
+    # Returns the width of the Hash type in bytes.
+    # @return [Integer] The width.
     def self.width
       @width
     end
@@ -14,6 +16,9 @@ module BinaryCodec
       end
     end
 
+    # Creates a new Hash instance from a value.
+    # @param value [Hash, String, Array<Integer>] The value to convert.
+    # @return [Hash] The created instance.
     def self.from(value)
       return value if value.is_a?(self)
 
@@ -29,10 +34,17 @@ module BinaryCodec
       raise StandardError, "Cannot construct #{self} from the value given"
     end
 
+    # Creates a Hash instance from a parser.
+    # @param parser [BinaryParser] The parser to read from.
+    # @param hint [Integer, nil] Optional width hint.
+    # @return [Hash] The created instance.
     def self.from_parser(parser, hint = nil)
       new(parser.read(hint || width))
     end
 
+    # Compares this Hash to another Hash.
+    # @param other [Hash] The other Hash to compare to.
+    # @return [Integer] Comparison result (-1, 0, or 1).
     def compare_to(other)
       @bytes <=> other.bytes
     end

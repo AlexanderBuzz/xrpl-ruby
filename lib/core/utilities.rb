@@ -10,10 +10,15 @@ module Core
       @address_codec = AddressCodec.new
     end
 
+    # Returns the singleton instance of the Utilities class.
+    # @return [Utilities] The singleton instance.
     def self.instance
       @@instance ||= new
     end
 
+    # Checks if a string is a valid X-address.
+    # @param x_address [String] The X-address to check.
+    # @return [Boolean] True if the string is a valid X-address, false otherwise.
     def is_x_address?(x_address)
       return false unless x_address.is_a?(String) && x_address.start_with?('X')
 

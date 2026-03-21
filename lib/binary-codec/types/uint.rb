@@ -3,6 +3,8 @@
 module BinaryCodec
 
   class Uint < ComparableSerializedType
+    # Returns the width of the Uint type in bytes.
+    # @return [Integer] The width.
     def self.width
       @width
     end
@@ -11,6 +13,9 @@ module BinaryCodec
       super(byte_buf || Array.new(self.class.width, 0))
     end
 
+    # Creates a new Uint instance from a value.
+    # @param value [Uint, String, Integer] The value to convert.
+    # @return [Uint] The created instance.
     def self.from(value)
       return value if value.is_a?(self)
 
@@ -29,14 +34,23 @@ module BinaryCodec
       raise StandardError, "Cannot construct #{self} from the value given"
     end
 
+    # Creates a Uint instance from a parser.
+    # @param parser [BinaryParser] The parser to read from.
+    # @param _hint [Integer, nil] Unused hint.
+    # @return [Uint] The created instance.
     def self.from_parser(parser, _hint = nil)
       new(parser.read(width))
     end
 
+    # Returns the numeric value of the Uint.
+    # @return [Integer] The numeric value.
     def value_of
       @bytes.reduce(0) { |acc, byte| (acc << 8) + byte }
     end
 
+    # Compares this Uint to another Uint.
+    # @param other [Uint] The other Uint to compare to.
+    # @return [Integer] Comparison result (-1, 0, or 1).
     def compare_to(other)
       value_of <=> other.value_of
     end
@@ -99,11 +113,16 @@ module BinaryCodec
 
   class Int32 < Uint
     @width = 4
+    # Returns the numeric value of the Int32.
+    # @return [Integer] The signed 32-bit value.
     def value_of
       val = super
       val > 0x7FFFFFFF ? val - 0x100000000 : val
     end
 
+    # Creates a new Int32 instance from a value.
+    # @param value [Int32, Integer] The value to convert.
+    # @return [Int32] The created instance.
     def self.from(value)
       return value if value.is_a?(self)
       if value.is_a?(Integer)
@@ -121,11 +140,16 @@ module BinaryCodec
 
   class Int64 < Uint
     @width = 8
+    # Returns the numeric value of the Int64.
+    # @return [Integer] The signed 64-bit value.
     def value_of
       val = super
       val > 0x7FFFFFFFFFFFFFFF ? val - 0x10000000000000000 : val
     end
 
+    # Creates a new Int64 instance from a value.
+    # @param value [Int64, Integer] The value to convert.
+    # @return [Int64] The created instance.
     def self.from(value)
       return value if value.is_a?(self)
       if value.is_a?(Integer)

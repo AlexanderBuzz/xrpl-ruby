@@ -45,19 +45,30 @@ module BinaryCodec
 
      end
 
+    # Returns the singleton instance of the Definitions class.
+    # @return [Definitions] The singleton instance.
     def self.instance
       @@instance ||= new
     end
 
-     def get_field_header_from_name(field_name)
+    # Returns the field header for a given field name.
+    # @param field_name [String] The name of the field.
+    # @return [FieldHeader] The field header.
+    def get_field_header_from_name(field_name)
        @field_header_map[field_name]
      end
 
-     def get_field_name_from_header(field_header)
+    # Returns the field name for a given field header.
+    # @param field_header [FieldHeader] The field header.
+    # @return [String] The name of the field.
+    def get_field_name_from_header(field_header)
        @field_id_name_map[Digest::MD5.hexdigest(Marshal.dump(field_header))]
      end
 
-     def get_field_instance(field_name)
+    # Returns a FieldInstance for a given field name.
+    # @param field_name [String] The name of the field.
+    # @return [FieldInstance] The field instance.
+    def get_field_instance(field_name)
        field_info = @field_info_map[field_name]
        field_header = get_field_header_from_name(field_name)
 

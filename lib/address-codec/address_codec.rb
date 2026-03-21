@@ -11,11 +11,21 @@ module AddressCodec
 
     MAX_32_BIT_UNSIGNED_INT = 4294967295
 
+    # Converts a classic address to an X-address.
+    # @param classic_address [String] The classic XRPL address to convert.
+    # @param tag [Integer, false, nil] The destination tag.
+    # @param test [Boolean] Whether the address is for a test network.
+    # @return [String] The encoded X-address.
     def classic_address_to_x_address(classic_address, tag, test)
       account_id = decode_account_id(classic_address)
       encode_x_address(account_id, tag, test)
     end
 
+    # Encodes an account ID and tag into an X-address.
+    # @param account_id [Array<Integer>] 20 bytes for the account ID.
+    # @param tag [Integer, false, nil] The destination tag.
+    # @param test [Boolean] Whether the address is for a test network.
+    # @return [String] The encoded X-address.
     def encode_x_address(account_id, tag, test)
       if account_id.length != 20
         # RIPEMD160 -> 160 Bits = 20 Bytes
@@ -46,6 +56,9 @@ module AddressCodec
       encode_checked(bytes)
     end
 
+    # Converts an X-address to a classic address.
+    # @param x_address [String] The X-address string to convert.
+    # @return [Hash] A hash containing :classic_address, :tag, and :test.
     def x_address_to_classic_address(x_address)
       decoded = decode_x_address(x_address)
       account_id = decoded[:account_id]
@@ -59,6 +72,9 @@ module AddressCodec
       }
     end
 
+    # Decodes an X-address into its underlying account ID, tag, and network type.
+    # @param x_address [String] The X-address string to decode.
+    # @return [Hash] A hash containing :account_id, :tag, and :test.
     def decode_x_address(x_address)
       decoded = decode_checked(x_address)
       test = is_uint8_array_for_test_address(decoded)
@@ -71,6 +87,9 @@ module AddressCodec
       }
     end
 
+    # Checks if a string is a valid X-address.
+    # @param x_address [String] The X-address string to check.
+    # @return [Boolean] True if the X-address is valid, false otherwise.
     def valid_x_address?(x_address)
       begin
         decode_x_address(x_address)

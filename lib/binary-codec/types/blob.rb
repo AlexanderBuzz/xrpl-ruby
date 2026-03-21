@@ -7,6 +7,9 @@ module BinaryCodec
       super(byte_buf || [])
     end
 
+    # Creates a new Blob instance from a value.
+    # @param value [Blob, String, Array<Integer>] The value to convert.
+    # @return [Blob] The created instance.
     def self.from(value)
       return value if value.is_a?(Blob)
 
@@ -24,6 +27,10 @@ module BinaryCodec
       raise StandardError, 'Cannot construct Blob from value given'
     end
 
+    # Creates a Blob instance from a parser.
+    # @param parser [BinaryParser] The parser to read from.
+    # @param hint [Integer, nil] Optional width hint.
+    # @return [Blob] The created instance.
     def self.from_parser(parser, hint = nil)
       new(parser.read(hint))
     end

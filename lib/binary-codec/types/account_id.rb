@@ -8,6 +8,9 @@ module BinaryCodec
             super(bytes)
         end
 
+        # Creates a new AccountId instance from a value.
+        # @param value [AccountId, String] The value to convert (hex or base58 address).
+        # @return [AccountId] The created instance.
         def self.from(value)
             return value if value.is_a?(AccountId)
 
@@ -24,6 +27,9 @@ module BinaryCodec
             raise 'Cannot construct AccountID from the value provided'
         end
 
+        # Creates an AccountId instance from a base58 address.
+        # @param value [String] The classic or X-address.
+        # @return [AccountId] The created instance.
         def self.from_base58(value)
             address_codec = AddressCodec::AddressCodec.new
             if address_codec.valid_x_address?(value)
@@ -43,6 +49,8 @@ module BinaryCodec
             to_base58
         end
 
+        # Returns the base58 representation of the account ID.
+        # @return [String] The base58 address.
         def to_base58
             address_codec = AddressCodec::AddressCodec.new
             address_codec.encode_account_id(@bytes)

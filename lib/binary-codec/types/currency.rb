@@ -27,10 +27,15 @@ module BinaryCodec
       end
     end
 
+    # Returns the ISO code of the currency, if applicable.
+    # @return [String, nil] The ISO code.
     def iso
       @_iso
     end
 
+    # Creates a new Currency instance from a value.
+    # @param value [Currency, String, Array<Integer>] The value to convert.
+    # @return [Currency] The created instance.
     def self.from(value)
       return value if value.is_a?(Currency)
 
@@ -45,6 +50,8 @@ module BinaryCodec
       raise StandardError, "Cannot construct Currency from #{value.class}"
     end
 
+    # Returns the JSON representation of the currency.
+    # @return [String] The ISO code or hex string.
     def to_json
       iso = self.iso
       return iso unless iso.nil?

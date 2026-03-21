@@ -6,6 +6,9 @@ module BinaryCodec
       super(bytes || [])
     end
 
+    # Creates a new Vector256 instance from a value.
+    # @param value [Vector256, String, Array<String>] The value to convert.
+    # @return [Vector256] The created instance.
     def self.from(value)
       return value if value.is_a?(Vector256)
 
@@ -25,6 +28,10 @@ module BinaryCodec
       raise StandardError, "Cannot construct Vector256 from #{value.class}"
     end
 
+    # Creates a Vector256 instance from a parser.
+    # @param parser [BinaryParser] The parser to read from.
+    # @param size_hint [Integer] The expected total size in bytes.
+    # @return [Vector256] The created instance.
     def self.from_parser(parser, size_hint = nil)
       bytes = []
       num_hashes = size_hint / 32

@@ -6,6 +6,10 @@ module BinaryCodec
       super(byte_buf || [])
     end
 
+    # Creates a new STArray instance from a value.
+    # @param value [STArray, String, Array<Hash>] The value to convert.
+    # @param definitions [Definitions, nil] Optional definitions.
+    # @return [STArray] The created instance.
     def self.from(value, definitions = nil)
       return value if value.is_a?(STArray)
       definitions ||= Definitions.instance
@@ -28,6 +32,10 @@ module BinaryCodec
       raise StandardError, "Cannot construct STArray from #{value.class}"
     end
 
+    # Creates an STArray instance from a parser.
+    # @param parser [BinaryParser] The parser to read from.
+    # @param _hint [Integer, nil] Unused hint.
+    # @return [STArray] The created instance.
     def self.from_parser(parser, _hint = nil)
       bytes = []
       until parser.end?(1) # Look ahead for end marker
@@ -39,6 +47,10 @@ module BinaryCodec
       STArray.new(bytes)
     end
 
+    # Returns the JSON representation of the STArray.
+    # @param _definitions [Definitions, nil] Unused.
+    # @param _field_name [String, nil] Unused.
+    # @return [Array<Hash>] The JSON representation.
     def to_json(_definitions = nil, _field_name = nil)
       parser = BinaryParser.new(to_hex)
       result = []

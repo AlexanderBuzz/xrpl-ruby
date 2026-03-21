@@ -3,6 +3,8 @@
 module Core
 
   class BaseX
+    # Initializes a new BaseX instance with the given alphabet.
+    # @param alphabet [String] The alphabet to use for encoding and decoding.
     def initialize(alphabet)
       @alphabet = alphabet
       @base = alphabet.length
@@ -10,6 +12,9 @@ module Core
       alphabet.chars.each_with_index { |char, index| @alphabet_map[char] = index }
     end
 
+    # Encodes a byte array into a string using the alphabet.
+    # @param buffer [String] The byte string to encode.
+    # @return [String] The encoded string.
     def encode(buffer)
       return @alphabet[0] if buffer.empty?
 
@@ -32,6 +37,9 @@ module Core
       digits.reverse.map { |digit| @alphabet[digit] }.join
     end
 
+    # Decodes a string into a byte string using the alphabet.
+    # @param string [String] The string to decode.
+    # @return [String] The decoded byte string.
     def decode(string)
       return '' if string.empty?
 

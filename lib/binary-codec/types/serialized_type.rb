@@ -5,14 +5,23 @@ module BinaryCodec
 
     attr_reader :bytes
 
+    # Initializes a new SerializedType instance.
+    # @param bytes [Array<Integer>, nil] The byte array representing the serialized data.
     def initialize(bytes = nil)
       @bytes = bytes
     end
 
+    # Creates a new instance of the type from a value.
+    # @param value [Object] The value to convert.
+    # @return [SerializedType] The created instance.
     def self.from(value)
       raise NotImplementedError, 'from not implemented'
     end
 
+    # Creates an instance of the type from a parser.
+    # @param parser [BinaryParser] The parser to read from.
+    # @param size_hint [Integer, nil] Optional size hint.
+    # @return [SerializedType] The created instance.
     def self.from_parser(parser, size_hint = nil)
       raise NotImplementedError, 'from_parser not implemented'
     end
@@ -32,6 +41,8 @@ module BinaryCodec
       new(bytes)
     end
 
+    # Puts the serialized data into a byte sink.
+    # @param sink [Object] The sink to put bytes into.
     def to_byte_sink(sink)
       sink.put(to_bytes)
     end
@@ -64,6 +75,9 @@ module BinaryCodec
       @bytes
     end
 
+    # Returns the class for a given type name.
+    # @param name [String] The name of the type.
+    # @return [Class] The class associated with the type name.
     def self.get_type_by_name(name)
       case name
       when "AccountID" then AccountId

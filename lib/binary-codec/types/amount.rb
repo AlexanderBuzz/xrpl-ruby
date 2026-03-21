@@ -29,6 +29,9 @@ module BinaryCodec
     #
     # @param value [Amount, Hash, String] representing the amount
     # @return [Amount] an Amount object
+    # Creates a new Amount instance from a value.
+    # @param value [Amount, String, Hash, Integer] The value to convert.
+    # @return [Amount] The created instance.
     def self.from(value)
       return value if value.is_a?(Amount)
 
@@ -92,6 +95,9 @@ module BinaryCodec
     #
     # @param parser [BinaryParser] The BinaryParser to read the Amount from
     # @return [Amount] An Amount bundle exec rspec spec/binary-codec/types/st_object_spec.rb object
+    # Creates an Amount instance from a parser.
+    # @param parser [BinaryParser] The parser to read from.
+    # @return [Amount] The created instance.
     def self.from_parser(parser)
       is_iou = parser.peek & 0x80 != 0
       return Amount.new(parser.read(48)) if is_iou
@@ -105,6 +111,10 @@ module BinaryCodec
     # The JSON representation of this Amount
     #
     # @return [Hash, String] The JSON interpretation of this.bytes
+    # Returns the JSON representation of the Amount.
+    # @param _definitions [Definitions, nil] Unused.
+    # @param _field_name [String, nil] Optional field name.
+    # @return [String, Hash] The JSON representation.
     def to_json(_definitions = nil, _field_name = nil)
       if is_native?
         bytes = @bytes.dup
@@ -265,6 +275,8 @@ module BinaryCodec
     # Check if this amount is in units of Native Currency (XRP)
     #
     # @return [Boolean] true if Native (XRP)
+    # Checks if the amount is a native XRP amount.
+    # @return [Boolean] True if native, false otherwise.
     def is_native?
       (self.bytes[0] & 0x80).zero? && (self.bytes[0] & 0x20).zero?
     end
@@ -272,6 +284,8 @@ module BinaryCodec
     # Check if this amount is in units of MPT
     #
     # @return [Boolean] true if MPT
+    # Checks if the amount is a multi-purpose token (MPT).
+    # @return [Boolean] True if MPT, false otherwise.
     def is_mpt?
       (self.bytes[0] & 0x80).zero? && (self.bytes[0] & 0x20) != 0
     end
@@ -279,6 +293,8 @@ module BinaryCodec
     # Check if this amount is in units of IOU
     #
     # @return [Boolean] true if IOU
+    # Checks if the amount is an IOU amount.
+    # @return [Boolean] True if IOU, false otherwise.
     def is_iou?
       (self.bytes[0] & 0x80) != 0
     end

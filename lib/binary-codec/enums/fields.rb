@@ -11,6 +11,8 @@ module BinaryCodec
       @nth = nth
     end
 
+    # Converts the field header to a byte array.
+    # @return [Array<Integer>] The byte array.
     def to_bytes
       header = []
       if type < 16
