@@ -28,3 +28,7 @@ require_relative 'binary-codec/types/vector256'
 require_relative 'binary-codec/types/path_set'
 require_relative 'binary-codec/types/issue'
 require_relative 'binary-codec/types/xchain_bridge'
+
+require_relative 'key-pairs/ed25519'
+require_relative 'key-pairs/secp256k1'
+require_relative 'key-pairs/key_pairs'
