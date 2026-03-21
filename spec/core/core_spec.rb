@@ -1,5 +1,4 @@
-# spec/core/core.rb
-require 'core/core'
+# frozen_string_literal: true
 
 RSpec.describe Core do
 

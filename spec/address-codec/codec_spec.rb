@@ -1,6 +1,4 @@
-# spec/address_codec/codec_spec.rb
-require 'address-codec/codec'
-require 'address-codec/xrp_codec'
+# frozen_string_literal: true
 
 RSpec.describe AddressCodec::Codec do
 

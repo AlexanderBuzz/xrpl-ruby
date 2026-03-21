@@ -1,8 +1,4 @@
-# spec/binary_codec/binary_parser_spec.rb
-#
-require 'binary-codec/enums/fields'
-require 'binary-codec/enums/definitions'
-require 'binary-codec/serdes/binary_parser'
+# frozen_string_literal: true
 
 RSpec.describe BinaryCodec::BinaryParser do
 
@@ -38,22 +34,16 @@ RSpec.describe BinaryCodec::BinaryParser do
 
   describe '#read_field_value' do
     let(:mock_field) do
-      double('FieldInstance', name: 'TestField', type: double('Type', name: 'Uint8'), is_variable_length_encoded: false)
+      double('FieldInstance', name: 'TestField', type: 'UInt8', is_variable_length_encoded: false)
     end
 
     it 'reads the value of a provided field' do
-      allow(parser).to receive(:type_for_field).with(mock_field).and_return(double('SerializedType', from_parser: 123))
-      expect(parser.read_field_value(mock_field)).to eq(123)
+      expect(parser.read_field_value(mock_field)).to be_a(BinaryCodec::Uint8)
     end
 
     it 'raises an error if the field type is unsupported' do
-      allow(parser).to receive(:type_for_field).with(mock_field).and_return(nil)
-      expect { parser.read_field_value(mock_field) }.to raise_error(StandardError, /unsupported: \(TestField, Uint8\)/)
-    end
-
-    it 'raises an error if from_parser returns nil' do
-      allow(parser).to receive(:type_for_field).with(mock_field).and_return(double('SerializedType', from_parser: nil))
-      expect { parser.read_field_value(mock_field) }.to raise_error(StandardError, /from_parser for \(TestField, Uint8\) -> nil/)
+      allow(mock_field).to receive(:type).and_return('UnsupportedType')
+      expect { parser.read_field_value(mock_field) }.to raise_error(StandardError, /unsupported type UnsupportedType/)
     end
   end
 end

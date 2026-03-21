@@ -24,13 +24,8 @@ module BinaryCodec
     end
 
     def write_field_and_value(field, value, is_unl_modify_workaround = false)
-      field_header = FieldHeader.new(type: field.header.type, nth: field.nth)
-      type_class = SerializedType.get_type_by_name(field.type)
-      associated_value = type_class.from(value)
-
-      if !associated_value.respond_to?(:to_byte_sink) || field.name.nil?
-        raise 'Error'
-      end
+      field_header = field.header
+      associated_value = field.associated_type.from(value)
 
       @sink.put(field_header.to_bytes)
 

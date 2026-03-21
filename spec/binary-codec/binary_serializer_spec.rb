@@ -1,7 +1,4 @@
-# spec/binary_codec/binary_serializer_spec.rb
-require 'binary-codec/enums/fields'
-require 'binary-codec/enums/definitions'
-require 'binary-codec/serdes/binary_serializer'
+# frozen_string_literal: true
 
 RSpec.describe BinaryCodec::BinarySerializer do
 

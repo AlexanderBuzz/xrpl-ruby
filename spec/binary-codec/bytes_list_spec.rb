@@ -1,5 +1,4 @@
-# spec/binary_codec/bytes_list.rb
-require 'binary-codec/serdes/bytes_list'
+# frozen_string_literal: true
 
 RSpec.describe BinaryCodec::BytesList do
 

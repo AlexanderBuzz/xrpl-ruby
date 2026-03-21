@@ -1,6 +1,5 @@
-# @!attribute
-require_relative 'base_x'
-require_relative 'base_58_xrp'
+# frozen_string_literal: true
+
 require 'securerandom'
 
 def random_bytes(size)
@@ -58,11 +57,10 @@ end
 def int_to_bytes(number, width = 1, byteorder = :big)
   bytes = []
   while number > 0
-    bytes << (number & 0xFF) # Extract the lowest 8 bits (1 byte)
-    number >>= 8             # Shift the number 8 bits to the right
+    bytes << (number & 0xFF)
+    number >>= 8
   end
 
-  # Ensure the result has at least `width` bytes (pad with zeroes if necessary)
   while bytes.size < width
     bytes << 0
   end

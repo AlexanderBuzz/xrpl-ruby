@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 require 'json'
+require 'digest'
 
 module BinaryCodec
 
@@ -66,10 +67,10 @@ module BinaryCodec
          is_serialized: field_info.is_serialized,
          is_signing_field: field_info.is_signing_field,
          type: field_info.type,
-         ordinal: (field_header.type << 16) | field_info.nth, # @type_ordinals[field_info.type],
+         ordinal: (@type_ordinals[field_info.type] << 16) | field_info.nth,
          name: field_name,
          header: field_header,
-         associated_type: field_info.type # SerializedType::getTypeByName($this->type)::class;
+         associated_type: SerializedType.get_type_by_name(field_info.type)
        )
      end
 

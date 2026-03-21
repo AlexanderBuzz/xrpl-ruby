@@ -1,6 +1,4 @@
-# spec/binary_codec/types/hash_spec.rb
-require 'binary-codec/types/serialized_type'
-require 'binary-codec/types/hash'
+# frozen_string_literal: true
 
 RSpec.describe BinaryCodec::Hash do
 

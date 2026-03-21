@@ -15,8 +15,8 @@ module BinaryCodec
     @width = 20
 
     def initialize(byte_buf = nil)
-      super(byte_buf || Array.new(20, 0)) # Defaults to XRP bytes if no buffer is given
-      hex = bytes_to_hex(@bytes)
+      super(byte_buf)
+      hex = to_hex
 
       if XRP_HEX_REGEX.match?(hex)
         @_iso = 'XRP'
@@ -35,10 +35,14 @@ module BinaryCodec
       return value if value.is_a?(Currency)
 
       if value.is_a?(String)
-        return Currency.new(bytes_from_representation(value))
+        return new(bytes_from_representation(value))
       end
 
-      raise StandardError, 'Cannot construct Currency from value given'
+      if value.is_a?(Array)
+        return new(value)
+      end
+
+      raise StandardError, "Cannot construct Currency from #{value.class}"
     end
 
     def to_json

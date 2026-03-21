@@ -2,18 +2,31 @@
 
 module BinaryCodec
   class Hash < ComparableSerializedType
+    def self.width
+      @width
+    end
 
-    def initialize(bytes, width)
-      @bytes = bytes
-      @width = width
-      if bytes.length != @width
-        # raise StandardError, "Invalid Hash length #{bytes.length} for width #{@width}"
-        raise StandardError, "Invalid Hash length #{bytes.length}"
+    def initialize(bytes = nil)
+      bytes = Array.new(self.class.width, 0) if bytes.nil? || bytes.empty?
+      super(bytes)
+      if @bytes.length != self.class.width
+        raise StandardError, "Invalid Hash length #{@bytes.length}"
       end
     end
 
-    def self.from(hex_string)
-      new(hex_to_bytes(hex_string))
+    def self.from(value)
+      return value if value.is_a?(self)
+
+      if value.is_a?(String)
+        return new if value.empty?
+        return new(hex_to_bytes(value))
+      end
+
+      if value.is_a?(Array)
+        return new(value)
+      end
+
+      raise StandardError, "Cannot construct #{self} from the value given"
     end
 
     def self.from_parser(parser, hint = nil)
@@ -42,15 +55,9 @@ module BinaryCodec
 
   class Hash128 < Hash
     @width = 16
-    @zero_128 = [0] * @width  # Array.new(@width, 0)
-
-    class << self
-      attr_reader :width, :zero_128
-    end
 
     def initialize(bytes = nil)
-      bytes = self.class.zero_128 if bytes&.empty?
-      super(bytes, self.class.width)
+      super(bytes)
     end
 
     def to_hex
@@ -62,43 +69,25 @@ module BinaryCodec
 
   class Hash160 < Hash
     @width = 20
-    @zero_160 = [0] * @width  # Array.new(@width, 0)
-
-    class << self
-      attr_reader :width, :zero_160
-    end
 
     def initialize(bytes = nil)
-      bytes = self.class.zero_160 if bytes&.empty?
-      super(bytes, self.class.width)
+      super(bytes)
     end
   end
 
   class Hash192 < Hash
     @width = 24
-    @zero_192 = [0] * @width  # Array.new(@width, 0)
-
-    class << self
-      attr_reader :width, :zero_192
-    end
 
     def initialize(bytes = nil)
-      bytes = self.class.zero_192 if bytes&.empty?
-      super(bytes, self.class.width)
+      super(bytes)
     end
   end
 
   class Hash256 < Hash
     @width = 32
-    @zero_256 = [0] * @width  # Array.new(@width, 0)
-
-    class << self
-      attr_reader :width, :zero_256
-    end
 
     def initialize(bytes = nil)
-      bytes = self.class.zero_256 if bytes&.empty?
-      super(bytes, self.class.width)
+      super(bytes)
     end
   end
 

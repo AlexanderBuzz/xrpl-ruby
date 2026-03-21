@@ -1,14 +1,12 @@
 # frozen_string_literal: true
 
-require_relative '../../core/core'
-
 module BinaryCodec
   class SerializedType
 
     attr_reader :bytes
 
     def initialize(bytes = nil)
-      raise NotImplementedError, "#{self.class} is an abstract class and cannot be instantiated"
+      @bytes = bytes
     end
 
     def self.from(value)
@@ -60,36 +58,48 @@ module BinaryCodec
       to_hex
     end
 
-    # Represent object as a string (hexadecimal form)
-    def to_s
-      to_hex
+    # Returns the value of the serialized type
+    # @return [Object] - The value of the serialized type
+    def value_of
+      @bytes
     end
 
     def self.get_type_by_name(name)
-      type_map = {
-        "AccountID" => AccountId,
-        "Amount" => Amount,
-        "Blob" => Blob,
-        "Currency" => Currency,
-        "Hash128" => Hash128,
-        "Hash160" => Hash160,
-        "Hash256" => Hash256,
-        #"PathSet" => PathSet,
-        #"STArray" => STArray,
-        "STObject" => STObject,
-        "UInt8" => Uint8,
-        "UInt16" => Uint16,
-        "UInt32" => Uint32,
-        "UInt64" => Uint64,
-        #"Vector256" => Vector256
-      }
-
-      unless type_map.key?(name)
+      case name
+      when "AccountID" then AccountId
+      when "Amount" then Amount
+      when "Blob" then Blob
+      when "Currency" then Currency
+      when "Hash128" then Hash128
+      when "Hash160" then Hash160
+      when "Hash192" then Hash192
+      when "Hash256" then Hash256
+      when "STArray" then STArray
+      when "STObject" then STObject
+      when "UInt8" then Uint8
+      when "UInt16" then Uint16
+      when "UInt32" then Uint32
+      when "UInt64" then Uint64
+      when "UInt96" then Uint96
+      when "UInt128" then Uint128
+      when "UInt160" then Uint160
+      when "UInt192" then Uint192
+      when "UInt256" then Uint256
+      when "UInt384" then Uint384
+      when "UInt512" then Uint512
+      when "Int32" then Int32
+      when "Int64" then Int64
+      when "PathSet" then PathSet
+      when "Vector256" then Vector256
+      when "XChainBridge" then XChainBridge
+      when "Issue" then Issue
+      when "Transaction" then Blob
+      when "LedgerEntry" then Blob
+      when "Validation" then Blob
+      when "Metadata" then Blob
+      else
         raise "unsupported type #{name}"
       end
-
-      # Return class
-      type_map[name]
     end
 
   end

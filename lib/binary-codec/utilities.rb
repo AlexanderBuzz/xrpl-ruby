@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module BinaryCodec
 
   # Write an 8-bit unsigned integer
@@ -77,4 +79,20 @@ module BinaryCodec
     (array.length % 4).zero?
   end
 
+  # TODO: Marked for overhaul
+  def self.is_valid_x_address?(x_address)
+    return false unless x_address.is_a?(String) && x_address.start_with?('X')
+
+    begin
+      decoded = decode_x_address(x_address)
+      return false if decoded[:account_id].nil? || decoded[:account_id].length != 20
+
+      tag = decoded[:tag]
+      return false if tag && (tag < 0 || tag > MAX_32_BIT_UNSIGNED_INT)
+
+      true
+    rescue StandardError
+      false
+    end
+  end
 end

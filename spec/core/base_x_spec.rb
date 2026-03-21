@@ -1,5 +1,4 @@
-# spec/core/base_x_spec.rb
-require 'core/base_x'
+# frozen_string_literal: true
 
 RSpec.describe Core::BaseX do
   before do

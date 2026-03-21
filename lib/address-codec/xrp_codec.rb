@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../core/core"
-
 module AddressCodec
 
   class XrpCodec < Codec

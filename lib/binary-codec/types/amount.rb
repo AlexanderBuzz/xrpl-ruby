@@ -3,8 +3,6 @@
 require 'bigdecimal'
 require 'bigdecimal/util'
 
-require_relative '../utilities'
-
 module BinaryCodec
   class Amount < SerializedType
 
@@ -93,7 +91,7 @@ module BinaryCodec
     # Read an amount from a BinaryParser
     #
     # @param parser [BinaryParser] The BinaryParser to read the Amount from
-    # @return [Amount] An Amount object
+    # @return [Amount] An Amount bundle exec rspec spec/binary-codec/types/st_object_spec.rb object
     def self.from_parser(parser)
       is_iou = parser.peek & 0x80 != 0
       return Amount.new(parser.read(48)) if is_iou
@@ -107,9 +105,9 @@ module BinaryCodec
     # The JSON representation of this Amount
     #
     # @return [Hash, String] The JSON interpretation of this.bytes
-    def to_json
+    def to_json(_definitions = nil, _field_name = nil)
       if is_native?
-        bytes = @bytes.dup # Duplicate the bytes to avoid mutation
+        bytes = @bytes.dup
         is_positive = (bytes[0] & 0x40) != 0
         sign = is_positive ? '' : '-'
         bytes[0] &= 0x3f
@@ -122,47 +120,52 @@ module BinaryCodec
       end
 
       if is_iou?
-        parser = BinaryParser.new(to_s)
-        mantissa = parser.read(8)
+        parser = BinaryParser.new(to_hex)
+        mantissa_bytes = parser.read(8)
         currency = Currency.from_parser(parser)
         issuer = AccountId.from_parser(parser)
 
-        b1 = mantissa[0]
-        b2 = mantissa[1]
+        b1 = mantissa_bytes[0]
+        b2 = mantissa_bytes[1]
 
         is_positive = (b1 & 0x40) != 0
         sign = is_positive ? '' : '-'
         exponent = ((b1 & 0x3f) << 2) + ((b2 & 0xff) >> 6) - 97
 
-        mantissa[0] = 0
-        mantissa[1] &= 0x3f
-        value = BigDecimal("#{sign}#{bytes_to_hex(mantissa).to_i(16)}") * BigDecimal("1e#{exponent}")
+        mantissa_bytes[0] = 0
+        mantissa_bytes[1] &= 0x3f
+        
+        # Convert mantissa bytes to integer
+        mantissa_int = mantissa_bytes.reduce(0) { |acc, b| (acc << 8) + b }
+        
+        value = BigDecimal(mantissa_int) * (BigDecimal(10)**exponent)
+        value = -value unless is_positive
         self.class.assert_iou_is_valid(value)
 
         return {
-          "value" => value.to_s('F'),
+          "value" => value.to_s('F').sub(/\.0$/, ''),
           "currency" => currency.to_json,
           "issuer" => issuer.to_json
-        }.to_s
+        }
       end
 
       if is_mpt?
-        parser = BinaryParser.new(to_s)
+        parser = BinaryParser.new(to_hex)
         leading_byte = parser.read(1)
-        amount = parser.read(8)
+        amount_bytes = parser.read(8)
         mpt_id = Hash192.from_parser(parser)
 
         is_positive = (leading_byte[0] & 0x40) != 0
         sign = is_positive ? '' : '-'
 
-        msb = read_uint32be(amount[0, 4])
-        lsb = read_uint32be(amount[4, 4])
+        msb = BinaryCodec.read_uint32be(amount_bytes[0, 4])
+        lsb = BinaryCodec.read_uint32be(amount_bytes[4, 4])
         num = (msb << 32) | lsb
 
         return {
-          value: "#{sign}#{num}",
-          mpt_issuance_id: mpt_id.to_s
-        }.to_s
+          "value" => "#{sign}#{num}",
+          "mpt_issuance_id" => mpt_id.to_hex
+        }
       end
 
       raise 'Invalid amount to construct JSON'

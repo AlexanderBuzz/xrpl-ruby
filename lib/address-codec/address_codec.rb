@@ -97,11 +97,9 @@ module AddressCodec
     def tag_from_uint8_array(bytes)
       flag = bytes[22]
       if flag >= 2
-        # Keine Unterstützung für 64-Bit-Tags zu diesem Zeitpunkt
         raise 'Unsupported X-address'
       end
       if flag == 1
-        # Little-endian zu Big-endian
         return bytes[23] + bytes[24] * 0x100 + bytes[25] * 0x10000 + bytes[26] * 0x1000000
       end
       if flag != 0
