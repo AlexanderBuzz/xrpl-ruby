@@ -20,6 +20,23 @@ module BinaryCodec
       return value if value.is_a?(self)
 
       if value.is_a?(String)
+        # Special handling for TransactionType and LedgerEntryType
+        if self == Uint16
+          transaction_types = Definitions.instance.instance_variable_get(:@transaction_types)
+          if transaction_types&.key?(value)
+            return new(int_to_bytes(transaction_types[value], width))
+          end
+          ledger_entry_types = Definitions.instance.instance_variable_get(:@ledger_entry_types)
+          if ledger_entry_types&.key?(value)
+            return new(int_to_bytes(ledger_entry_types[value], width))
+          end
+        elsif self == Uint8
+          transaction_results = Definitions.instance.instance_variable_get(:@transaction_results)
+          if transaction_results&.key?(value)
+            return new(int_to_bytes(transaction_results[value], width))
+          end
+        end
+
         # Handle hex strings or numeric strings
         if valid_hex?(value) && value.length == self.width * 2
           return new(hex_to_bytes(value))
@@ -48,7 +65,37 @@ module BinaryCodec
       @bytes.reduce(0) { |acc, byte| (acc << 8) + byte }
     end
 
-    # Compares this Uint to another Uint.
+    # Returns the JSON representation of the Uint.
+    # @return [Integer, String] The value.
+    def to_json(_definitions = nil, _field_name = nil)
+      # Special handling for TransactionType, LedgerEntryType, and TransactionResult
+      # ONLY when requested via a field name that matches.
+      if _field_name == 'TransactionType'
+        val = value_of
+        transaction_types = Definitions.instance.instance_variable_get(:@transaction_types)
+        if transaction_types
+          name = transaction_types.key(val)
+          return name if name
+        end
+      elsif _field_name == 'LedgerEntryType'
+        val = value_of
+        ledger_entry_types = Definitions.instance.instance_variable_get(:@ledger_entry_types)
+        if ledger_entry_types
+          name = ledger_entry_types.key(val)
+          return name if name
+        end
+      elsif _field_name == 'TransactionResult'
+        val = value_of
+        transaction_results = Definitions.instance.instance_variable_get(:@transaction_results)
+        if transaction_results
+          name = transaction_results.key(val)
+          return name if name
+        end
+      end
+
+      # For Uint8/16/32/64 we return padded hex, to satisfy existing Ruby tests.
+      return value_of.to_s(16).upcase.rjust(self.class.width * 2, '0')
+    end
     # @param other [Uint] The other Uint to compare to.
     # @return [Integer] Comparison result (-1, 0, or 1).
     def compare_to(other)

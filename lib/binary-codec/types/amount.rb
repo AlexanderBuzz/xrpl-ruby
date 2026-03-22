@@ -16,6 +16,8 @@ module BinaryCodec
 
     MAX_DROPS = BigDecimal("1e17")
     MIN_XRP = BigDecimal("1e-6")
+    MIN_XRP_DROPS = 1
+    MAX_XRP_DROPS = 10**17
 
     def initialize(bytes = nil)
       if bytes.nil?
@@ -35,60 +37,74 @@ module BinaryCodec
     def self.from(value)
       return value if value.is_a?(Amount)
 
-      amount = Array.new(8, 0) # Equivalent to a Uint8Array of 8 zeros
-
       if value.is_a?(String)
         Amount.assert_xrp_is_valid(value)
-
-        number = value.to_i # Use to_i for equivalent BigInt handling
-
-        int_buf = [Array.new(4, 0), Array.new(4, 0)]
-        BinaryCodec.write_uint32be(int_buf[0], (number >> 32) & 0xFFFFFFFF, 0)
-        BinaryCodec.write_uint32be(int_buf[1], number & 0xFFFFFFFF, 0)
-
-        amount = int_buf.flatten
-
-        amount[0] |= 0x40
-
-        return Amount.new(amount)
+        number = value.to_i
+        amount_bytes = int_to_bytes(number, 8)
+        amount_bytes[0] |= 0x40
+        return Amount.new(amount_bytes)
       end
 
-      if is_amount_object_iou?(value)
-        number = BigDecimal(value[:value])
-        self.assert_iou_is_valid(number)
+      if value.respond_to?(:key?)
+        val = value[:value] || value['value']
+        cur = value[:currency] || value['currency']
+        iss = value[:issuer] || value['issuer']
 
-        if number.zero?
-          amount[0] |= 0x80
-        else
-          scale = number.frac.to_s('F').split('.').last.size
-          unscaled_value = (number * (10**scale)).to_i
-          int_string = unscaled_value.abs.to_s.ljust(16, '0')
-          num = int_string.to_i
-
-          int_buf = [Array.new(4, 0), Array.new(4, 0)]
-          BinaryCodec.write_uint32be(int_buf[0], (num >> 32) & 0xFFFFFFFF)
-          BinaryCodec.write_uint32be(int_buf[1], num & 0xFFFFFFFF)
-
-          amount = int_buf.flatten
-
-          amount[0] |= 0x80
-
-          if number > 0
-            amount[0] |= 0x40
+        if val && cur && iss
+          number = BigDecimal(val.to_s)
+          
+          if number.precision > MAX_IOU_PRECISION
+            raise ArgumentError, 'Decimal precision out of range'
           end
 
-          exponent = number.exponent - 16
-          exponent_byte = 97 + exponent
-          amount[0] |= exponent_byte >> 2
-          amount[1] |= (exponent_byte & 0x03) << 6
+          currency_inst = Currency.from(cur)
+          issuer_inst = AccountId.from(iss)
+
+          if number.zero?
+            iou_bytes = [0x80, 0, 0, 0, 0, 0, 0, 0]
+            return Amount.new(iou_bytes + currency_inst.to_bytes + issuer_inst.to_bytes)
+          end
+
+          is_positive = number >= 0
+          abs_value = number.abs
+          
+          exponent = (Math.log10(abs_value.to_f).floor) - 15
+          mantissa = (abs_value / (BigDecimal(10)**exponent)).to_i
+
+          while mantissa < 1000000000000000
+            mantissa *= 10
+            exponent -= 1
+          end
+          while mantissa > 9999999999999999
+            mantissa /= 10
+            exponent += 1
+          end
+
+          exponent_byte = exponent + 97
+          b1 = (is_positive ? 0x40 : 0) | 0x80 | (exponent_byte >> 2)
+          b2 = ((exponent_byte & 0x03) << 6) | (mantissa >> 48)
+
+          iou_bytes = [
+            b1, b2,
+            (mantissa >> 40) & 0xff,
+            (mantissa >> 32) & 0xff,
+            (mantissa >> 24) & 0xff,
+            (mantissa >> 16) & 0xff,
+            (mantissa >> 8) & 0xff,
+            mantissa & 0xff
+          ]
+          return Amount.new(iou_bytes + currency_inst.to_bytes + issuer_inst.to_bytes)
         end
-
-        currency = Currency.from(value[:currency]).to_bytes
-        issuer = AccountId.from(value[:issuer]).to_bytes
-
-        return Amount.new(amount + currency + issuer)
       end
 
+      if value.is_a?(Integer)
+        Amount.assert_xrp_is_valid(value.to_s)
+        amount_bytes = int_to_bytes(value, 8)
+        amount_bytes[0] |= 0x40
+        return Amount.new(amount_bytes)
+      end
+
+      raise ArgumentError, "Cannot construct Amount from the value given"
     end
 
     # Read an amount from a BinaryParser
@@ -140,7 +156,6 @@ module BinaryCodec
         b2 = mantissa_bytes[1]
 
         is_positive = (b1 & 0x40) != 0
-        sign = is_positive ? '' : '-'
         exponent = ((b1 & 0x3f) << 2) + ((b2 & 0xff) >> 6) - 97
 
         mantissa_bytes[0] = 0
@@ -149,12 +164,15 @@ module BinaryCodec
         # Convert mantissa bytes to integer
         mantissa_int = mantissa_bytes.reduce(0) { |acc, b| (acc << 8) + b }
         
+        # value = mantissa * 10^exponent
         value = BigDecimal(mantissa_int) * (BigDecimal(10)**exponent)
         value = -value unless is_positive
-        self.class.assert_iou_is_valid(value)
+        
+        # Format the value string to match xrpl.js (stripping trailing .0)
+        formatted_value = value.to_s('F').sub(/\.0$/, '')
 
         return {
-          "value" => value.to_s('F').sub(/\.0$/, ''),
+          "value" => formatted_value,
           "currency" => currency.to_json,
           "issuer" => issuer.to_json
         }
@@ -186,17 +204,23 @@ module BinaryCodec
 
     # Type guard for AmountObjectIOU
     def self.is_amount_object_iou?(arg)
-      keys = arg.transform_keys(&:to_s).keys.sort
+      return false unless arg.is_a?(::Hash)
+      
+      # Handle both string and symbol keys
+      processed = arg.transform_keys(&:to_s)
+      
+      # Log for debugging
+      # puts "DEBUG: Checking if #{processed.keys.inspect} is IOU"
 
-      keys.length == 3 &&
-        keys[0] == 'currency' &&
-        keys[1] == 'issuer' &&
-        keys[2] == 'value'
+      processed.key?('currency') &&
+        processed.key?('issuer') &&
+        processed.key?('value')
     end
 
     # Type guard for AmountObjectMPT
     def self.is_amount_object_mpt?(arg)
-      keys = arg.keys.sort
+      return false unless arg.is_a?(::Hash)
+      keys = arg.transform_keys(&:to_s).keys.sort
 
       keys.length == 2 &&
         keys[0] == 'mpt_issuance_id' &&
@@ -212,9 +236,9 @@ module BinaryCodec
         raise "#{amount} is an illegal amount"
       end
 
-      decimal = BigDecimal(amount)
+      decimal = amount.to_i
       unless decimal.zero?
-        if decimal < MIN_XRP || decimal > MAX_DROPS
+        if decimal < MIN_XRP_DROPS || decimal > MAX_XRP_DROPS
           raise "#{amount} is an illegal amount"
         end
       end
@@ -267,10 +291,12 @@ module BinaryCodec
     # @raise [ArgumentError] if the value contains a decimal
     # @return [String] The decimal converted to a string without a decimal point
     def self.verify_no_decimal(decimal)
-      exponent = -((decimal.exponent || 0) - 16)
-      scaled_decimal = decimal * 10 ** exponent
-
-        raise ArgumentError, 'Decimal place found in int_string' unless scaled_decimal.frac == 0
+      # p is the number of significant digits
+      # e is the power of 10 to multiply by the mantissa to get the number
+      # BigDecimal('1.1234567891234567').precision => 17
+      if decimal.precision > MAX_IOU_PRECISION
+        raise ArgumentError, 'Decimal precision out of range'
+      end
     end
 
     # Check if this amount is in units of Native Currency (XRP)

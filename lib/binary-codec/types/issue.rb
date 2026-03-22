@@ -23,19 +23,13 @@ module BinaryCodec
       raise StandardError, "Cannot construct Issue from #{value.class}"
     end
 
-    def self.from_parser(parser, _hint = nil)
+    def self.from_parser(parser, size_hint = nil)
       bytes = []
+      return Issue.new(bytes) if parser.end?
       bytes.concat(parser.read(20)) # Currency
-      # If there are more bytes in this field, it might have an issuer?
-      # Actually Issue is often fixed length 20 or 40.
-      # For XChainBridge it uses Issue.
-      # Let's see how much we should read. 
-      # Usually if it's an Issue in a field, we might know the size.
-      # For now, let's assume it can be 20 or 40.
-      # But wait, how does the parser know?
-      # If it's not variable length, it must have a fixed width or be the rest of the object.
-      # Definitions.json says Issue is type 24.
-      bytes.concat(parser.read(20)) unless parser.end? # Try reading issuer
+      unless parser.end? || (size_hint && size_hint <= 20)
+        bytes.concat(parser.read(20))
+      end
       Issue.new(bytes)
     end
 
@@ -45,6 +39,9 @@ module BinaryCodec
       result['currency'] = Currency.from_parser(parser).to_json
       result['issuer'] = AccountId.from_parser(parser).to_json unless parser.end?
       result
+    rescue
+      # Fallback for partial/invalid binary
+      { 'currency' => Currency.new(to_bytes[0, 20]).to_json }
     end
   end
 end

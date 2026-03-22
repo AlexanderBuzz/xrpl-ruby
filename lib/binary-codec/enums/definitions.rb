@@ -31,10 +31,12 @@ module BinaryCodec
           is_signing_field: field[1]['isSigningField'],
           type: field[1]['type']
         )
-        field_header = FieldHeader.new(type: @type_ordinals[field_info.type], nth: field_info.nth)
+        type_ordinal = @type_ordinals[field_info.type]
+        field_header = FieldHeader.new(type: type_ordinal, nth: field_info.nth)
 
         @field_info_map[field_name] = field_info
-        @field_id_name_map[Digest::MD5.hexdigest(Marshal.dump(field_header))] = field_name
+        key = (type_ordinal << 16) | field_info.nth
+        @field_id_name_map[key] = field_name
         @field_header_map[field_name] = field_header
       end
 
@@ -62,8 +64,8 @@ module BinaryCodec
     # @param field_header [FieldHeader] The field header.
     # @return [String] The name of the field.
     def get_field_name_from_header(field_header)
-       @field_id_name_map[Digest::MD5.hexdigest(Marshal.dump(field_header))]
-     end
+       @field_id_name_map[(field_header.type << 16) | field_header.nth]
+    end
 
     # Returns a FieldInstance for a given field name.
     # @param field_name [String] The name of the field.

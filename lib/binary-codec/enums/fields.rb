@@ -22,7 +22,7 @@ module BinaryCodec
           header.push(type << 4, nth)
         end
       elsif nth < 16
-        header.push(nth,type)
+        header.push(nth, type)
       else
         header.push(0, type, nth)
       end

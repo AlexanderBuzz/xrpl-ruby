@@ -37,6 +37,15 @@ module BinaryCodec
     # @param value [Object] The value of the field.
     # @param is_unl_modify_workaround [Boolean] Whether to apply the UNLModify workaround.
     def write_field_and_value(field, value, is_unl_modify_workaround = false)
+      # Special case for Blob fields that are empty (e.g., SigningPubKey = "")
+      # In Ruby, Blob.from("") returns an empty Blob.
+      # If we want to force 0x00 length prefix, we handle it here.
+      if field.type == 'Blob' && (value == "" || (value.is_a?(Array) && value.empty?))
+        @sink.put(field.header.to_bytes)
+        @sink.put([0]) # length 0
+        return
+      end
+
       field_header = field.header
       associated_value = field.associated_type.from(value)
 
@@ -46,6 +55,9 @@ module BinaryCodec
         write_length_encoded(associated_value, is_unl_modify_workaround)
       else
         associated_value.to_byte_sink(@sink)
+        if field.type == 'STObject'
+          @sink.put([0xE1]) # ObjectEndMarker
+        end
       end
     end
 

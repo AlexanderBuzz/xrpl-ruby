@@ -97,13 +97,8 @@ describe Wallet::Wallet do
     end
 
     it 'signs and verifies a Secp256k1 message' do
-      begin
-        signature = wallet_secp.sign(message)
-        expect(wallet_secp.verify(message, signature)).to be true
-      rescue => e
-        pending "Secp256k1 signing/verification failed: #{e.message} (OpenSSL 3.0 restriction)"
-        raise e
-      end
+      signature = wallet_secp.sign(message)
+      expect(wallet_secp.verify(message, signature)).to be true
     end
   end
 

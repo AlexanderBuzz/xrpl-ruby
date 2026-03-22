@@ -111,25 +111,19 @@ module BinaryCodec
     # Reads a field header from the stream.
     # @return [FieldHeader] The field header.
     def read_field_header
-      type = read_uint8
-      nth = type & 15
-      type >>= 4
+      first_byte = read_uint8
+      type = first_byte >> 4
+      nth = first_byte & 15
 
       if type == 0
         type = read_uint8
-        if type == 0 || type < 16
-          raise StandardError.new("Cannot read FieldOrdinal, type_code #{type} out of range")
-        end
       end
 
       if nth == 0
         nth = read_uint8
-        if nth == 0 || nth < 16
-          raise StandardError.new("Cannot read FieldOrdinal, field_code #{nth} out of range")
-        end
       end
 
-      FieldHeader.new(type: type, nth: nth) # (type << 16) | nth for read_field_ordinal
+      FieldHeader.new(type: type, nth: nth)
     end
 
     # Reads a field instance from the stream.
@@ -137,6 +131,8 @@ module BinaryCodec
     def read_field
       field_header = read_field_header
       field_name = @definitions.get_field_name_from_header(field_header)
+      
+      raise "Unknown field for header: type=#{field_header.type}, nth=#{field_header.nth}" if field_name.nil?
 
       @definitions.get_field_instance(field_name)
     end

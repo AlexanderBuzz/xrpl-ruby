@@ -25,7 +25,9 @@ module BinaryCodec
     def binary_to_json(hex)
       parser = make_parser(hex)
       st_object = SerializedType.get_type_by_name('STObject')
-      JSON.parse(st_object.from_parser(parser).to_json)
+      result = st_object.from_parser(parser).to_json
+      result = JSON.generate(result) unless result.is_a?(String)
+      JSON.parse(result)
     end
 
     # Converts a JSON object to its binary representation.

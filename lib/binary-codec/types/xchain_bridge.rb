@@ -13,7 +13,7 @@ module BinaryCodec
         return XChainBridge.new(hex_to_bytes(value))
       end
 
-      if value.is_a?(Hash)
+      if value.is_a?(::Hash)
         bytes = []
         bytes.concat(AccountId.from(value['LockingChainDoor']).to_bytes)
         bytes.concat(Issue.from(value['LockingChainIssue']).to_bytes)
@@ -28,9 +28,9 @@ module BinaryCodec
     def self.from_parser(parser, _hint = nil)
       bytes = []
       bytes.concat(parser.read(20)) # LockingChainDoor
-      bytes.concat(Issue.from_parser(parser).to_bytes) # LockingChainIssue
+      bytes.concat(Issue.from_parser(parser, 40).to_bytes) # LockingChainIssue
       bytes.concat(parser.read(20)) # IssuingChainDoor
-      bytes.concat(Issue.from_parser(parser).to_bytes) # IssuingChainIssue
+      bytes.concat(Issue.from_parser(parser, 40).to_bytes) # IssuingChainIssue
       XChainBridge.new(bytes)
     end
 
@@ -38,9 +38,9 @@ module BinaryCodec
       parser = BinaryParser.new(to_hex)
       result = {}
       result['LockingChainDoor'] = AccountId.from_parser(parser).to_json
-      result['LockingChainIssue'] = Issue.from_parser(parser).to_json
+      result['LockingChainIssue'] = Issue.from_parser(parser, 40).to_json
       result['IssuingChainDoor'] = AccountId.from_parser(parser).to_json
-      result['IssuingChainIssue'] = Issue.from_parser(parser).to_json
+      result['IssuingChainIssue'] = Issue.from_parser(parser, 40).to_json
       result
     end
   end

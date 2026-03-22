@@ -20,7 +20,7 @@ module BinaryCodec
         return Blob.new(hex_to_bytes(value))
       end
 
-      if value.is_a?(Array)
+      if value.is_a?(::Array)
         return Blob.new(value)
       end
 

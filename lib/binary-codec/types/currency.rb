@@ -43,7 +43,7 @@ module BinaryCodec
         return new(bytes_from_representation(value))
       end
 
-      if value.is_a?(Array)
+      if value.is_a?(::Array)
         return new(value)
       end
 

@@ -16,10 +16,10 @@ module BinaryCodec
     end
 
     # Adds bytes to the list.
-    # @param bytes_arg [Array<Integer>] The bytes to add.
+    # @param bytes_arg [Array<Integer>, Integer] The bytes to add.
     # @return [BytesList] self for chaining.
     def put(bytes_arg)
-      bytes = bytes_arg.dup
+      bytes = bytes_arg.is_a?(Integer) ? [bytes_arg] : bytes_arg.dup
       @bytes_array << bytes
       self # Allow chaining
     end

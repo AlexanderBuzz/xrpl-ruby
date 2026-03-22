@@ -21,9 +21,22 @@ module BinaryCodec
       if value.is_a?(Array)
         bytes = []
         value.each do |item|
-          obj = STObject.from(item, nil, definitions)
-          bytes.concat(obj.to_bytes)
-          bytes.concat([0xF1]) # ArrayItemEndMarker
+          # item should be a hash with one key (the field name)
+          # e.g., {"Signer" => { ... }}
+          if item.is_a?(::Hash)
+            # Use keys.first and unwrap directly
+            field_name = item.keys.first.to_s
+            field_value = item[item.keys.first]
+            
+            field = definitions.get_field_instance(field_name)
+            bytes.concat(field.header.to_bytes)
+            
+            obj = STObject.from(field_value, nil, definitions)
+            bytes.concat(obj.to_bytes)
+            bytes.concat([0xE1]) unless bytes.last == 0xE1
+          else
+            raise StandardError, "STArray item must be a Hash, got #{item.class}"
+          end
         end
         bytes.concat([0xF1]) # ArrayEndMarker
         return STArray.new(bytes)
@@ -34,36 +47,58 @@ module BinaryCodec
 
     # Creates an STArray instance from a parser.
     # @param parser [BinaryParser] The parser to read from.
-    # @param _hint [Integer, nil] Unused hint.
+    # @param _hint [Integer, nil] Unused.
     # @return [STArray] The created instance.
     def self.from_parser(parser, _hint = nil)
       bytes = []
-      until parser.end?(1) # Look ahead for end marker
+      until parser.end?
+        # Check if we reached the ArrayEndMarker (0xF1)
+        if parser.peek == 0xF1
+          parser.read(1) # Consume 0xF1
+          break
+        end
+
+        # In STArray, each item is an STObject with its field header.
+        # So we read the field header first.
+        field_header = parser.read_field_header
+        
+        # Then we read the STObject
         obj = STObject.from_parser(parser)
+        
+        # Reconstruct the serialized item: [FieldHeader][STObject][ObjectEndMarker]
+        bytes.concat(field_header.to_bytes)
         bytes.concat(obj.to_bytes)
-        bytes.concat(parser.read(1)) # Should be 0xF1 (ArrayItemEndMarker)
+        bytes.concat([0xE1]) unless bytes.last == 0xE1
       end
-      parser.read(1) # Consume 0xF1 (ArrayEndMarker)
       STArray.new(bytes)
     end
 
     # Returns the JSON representation of the STArray.
-    # @param _definitions [Definitions, nil] Unused.
+    # @param definitions [Definitions, nil] Definitions for lookup.
     # @param _field_name [String, nil] Unused.
     # @return [Array<Hash>] The JSON representation.
-    def to_json(_definitions = nil, _field_name = nil)
+    def to_json(definitions = nil, _field_name = nil)
+      definitions ||= Definitions.instance
       parser = BinaryParser.new(to_hex)
       result = []
       until parser.end?
-        obj = STObject.from_parser(parser)
-        result << JSON.parse(obj.to_json)
-        # In xrpl.js, array items are STObjects. 
-        # After each STObject, there might be an ArrayItemEndMarker if we're not at the end.
-        # But wait, STObject.from_parser already reads until ObjectEndMarker.
-        # STArray in XRPL is a list of objects, each ending with ObjectEndMarker.
-        # The whole array ends with ArrayEndMarker (0xF1).
-        # Actually, standard XRPL STArray: [FieldHeader][STObject][FieldHeader][STObject]...[0xF1]
-        # Wait, I need to check how xrpl.js handles STArray.
+        begin
+          # Check if we reached the ArrayEndMarker (0xF1) or if peek fails
+          break if parser.peek == 0xF1
+          
+          # Read field header of the array item (e.g., "Signer")
+          field_header = parser.read_field_header
+          field_name = definitions.get_field_name_from_header(field_header)
+          
+          # Read the STObject item
+          obj = STObject.from_parser(parser)
+          
+          # Array item in JSON is { "FieldName": { ... } }
+          item_json = obj.to_json(definitions)
+          result << { field_name => item_json.is_a?(String) ? JSON.parse(item_json) : item_json }
+        rescue => e
+          break
+        end
       end
       result
     end

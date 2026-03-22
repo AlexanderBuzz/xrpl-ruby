@@ -1,6 +1,6 @@
 Gem::Specification.new do |spec|
   spec.name          = "xrpl-ruby"
-  spec.version       = "0.4.0"
+  spec.version       = "0.5.1"
   spec.authors       = ["Alexander Busse"]
   spec.email         = ["dev@ledger-direct.com"]
 
@@ -19,4 +19,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rspec", "~> 3.0"
 
   spec.add_runtime_dependency "ed25519", "~> 1.3"
+  spec.add_runtime_dependency "ecdsa", "~> 1.2.0"
 end

@@ -17,10 +17,12 @@ module KeyPairs
       # Public key in XRPL is 0xED followed by 32 bytes of public key.
       public_key = [0xED].pack('C') + signing_key.verify_key.to_bytes
       
-      # Private key in XRPL is the 32-byte hash.
+      # Private key in XRPL is 0xED followed by the 32-byte hash.
+      private_key = [0xED].pack('C') + hash
+
       {
         public_key: public_key.unpack1('H*').upcase,
-        private_key: hash.unpack1('H*').upcase
+        private_key: private_key.unpack1('H*').upcase
       }
     end
 
@@ -31,6 +33,9 @@ module KeyPairs
     def self.sign(message, private_key)
       msg_bytes = message.is_a?(String) ? [message].pack('H*') : message.pack('C*')
       key_bytes = [private_key].pack('H*')
+      # In XRPL, Ed25519 private keys are often prefixed with 0xED (33 bytes).
+      # The ed25519 gem expects 32 bytes.
+      key_bytes = key_bytes[1..-1] if key_bytes.length == 33 && key_bytes[0].ord == 0xED
       signing_key = ::Ed25519::SigningKey.new(key_bytes)
       
       signature = signing_key.sign(msg_bytes)

@@ -20,7 +20,7 @@ module BinaryCodec
         return PathSet.new(hex_to_bytes(value))
       end
 
-      if value.is_a?(Array)
+      if value.is_a?(::Array)
         bytes = []
         value.each_with_index do |path, index|
           path.each do |step|

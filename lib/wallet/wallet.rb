@@ -60,20 +60,82 @@ module Wallet
       from_seed(seed)
     end
 
-    # Signs a message (hex string) with the wallet's private key.
-    # @param message [String, Hash] The message (hex string) or transaction (Hash) to sign.
+    # Signs a message (hex string) or transaction (Hash) with the wallet's private key.
+    # @param transaction [String, Hash] The message (hex string) or transaction (Hash) to sign.
     # @param multisign [Boolean] Whether to sign for a multisigned transaction.
-    # @return [String] The signature as a hex string.
-    def sign(message, multisign: false)
+    # @return [String, Hash] The signature (hex string) if a message was provided, 
+    #   or a hash containing :tx_blob and :hash if a transaction was provided.
+    def sign(transaction, multisign = false)
       algorithm = @algorithm
       # Check if message is a Hash (transaction)
-      if message.is_a?(Hash)
+      if transaction.is_a?(::Hash)
         prefix = multisign ? BinaryCodec::HASH_PREFIX[:transaction_multi_sig] : BinaryCodec::HASH_PREFIX[:transaction_sig]
-        signing_data = BinaryCodec.signing_data(message, prefix, signing_fields_only: true)
+        
+        # 1. Prepare the transaction for signing
+        tx_to_sign = transaction.dup
+        if multisign
+          # For multisigning, we need the SigningPubKey to be empty,
+          # and we need to add the Signers field later.
+          # We also need to add the Account of the signer to the signing data.
+          tx_to_sign['SigningPubKey'] = ""
+          # The multisign signing data MUST include the account of the signer.
+        else
+          tx_to_sign['SigningPubKey'] = @public_key
+        end
+        
+        # Ensure SigningPubKey is serialized as a 0-length blob if empty
+        
+        signing_data = BinaryCodec.signing_data(tx_to_sign, prefix, signing_fields_only: true)
+        
+        if multisign
+          # Append the account ID of the signer to the signing data
+          account_id = AddressCodec::AddressCodec.new.decode_account_id(@classic_address)
+          signing_data += account_id
+        end
+        
         message = bytes_to_hex(signing_data)
+        
+        # 2. Sign the message
+        signature = @key_pairs.sign(message, @private_key, algorithm)
+        
+        # 3. Create the signed transaction
+        signed_tx = tx_to_sign.dup
+        if multisign
+          # For multisign=true, xrpl.js/PHP often returns a partially signed transaction
+          # or an object containing the signature for a specific signer.
+          # The PHP snippet expects a tx_blob.
+          # Looking at the PHP snippet, it calls $wallet->sign($tx, true).
+          # In XRPL, a multisigned transaction blob is usually the transaction
+          # WITH the Signers array.
+          
+          signer = {
+            "Signer" => {
+              "Account" => @classic_address,
+              "SigningPubKey" => @public_key,
+              "TxnSignature" => signature
+            }
+          }
+          signed_tx['Signers'] = [signer]
+          signed_tx.delete('SigningPubKey') # Should be empty/not present in multisigned tx
+        else
+          signed_tx['TxnSignature'] = signature
+        end
+        
+        # 4. Serialize the signed transaction
+        tx_blob = BinaryCodec.json_to_binary(signed_tx)
+        
+        # 5. Generate the hash (transaction ID)
+        # For transactions, the hash is SHA512Half of the serialized transaction with a prefix
+        hash_prefix = [0x54, 0x58, 0x4E, 0x00].pack('C*') # 'TXN\0'
+        hash = Digest::SHA512.digest(hash_prefix + [tx_blob].pack('H*'))[0...32].unpack1('H*').upcase
+        
+        return {
+          'tx_blob' => tx_blob,
+          'hash' => hash
+        }
       end
 
-      @key_pairs.sign(message, @private_key, algorithm)
+      @key_pairs.sign(transaction, @private_key, algorithm)
     end
 
     # Verifies a signature for a message.
