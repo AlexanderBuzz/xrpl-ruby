@@ -46,6 +46,7 @@ Session.vim
 # Project specific
 .editorconfig
 TODO.md
+/_junie/
 /ts_source
 /_scripts
 /_docs

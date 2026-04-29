@@ -93,8 +93,11 @@ module BinaryCodec
         end
       end
 
-      # For Uint8/16/32/64 we return padded hex, to satisfy existing Ruby tests.
-      return value_of.to_s(16).upcase.rjust(self.class.width * 2, '0')
+      # For Uint8/16/32/64 and Int32/64 we return padded hex, to satisfy existing Ruby tests.
+      # We use unsigned value for hex representation of signed types.
+      u_val = value_of
+      u_val += (1 << (self.class.width * 8)) if u_val < 0
+      return u_val.to_s(16).upcase.rjust(self.class.width * 2, '0')
     end
     # @param other [Uint] The other Uint to compare to.
     # @return [Integer] Comparison result (-1, 0, or 1).

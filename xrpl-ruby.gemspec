@@ -20,4 +20,6 @@ Gem::Specification.new do |spec|
 
   spec.add_runtime_dependency "ed25519", "~> 1.3"
   spec.add_runtime_dependency "ecdsa", "~> 1.2.0"
+  spec.add_runtime_dependency "faye-websocket", "~> 0.11"
+  spec.add_runtime_dependency "eventmachine", "~> 1.2"
 end
