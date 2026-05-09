@@ -4,6 +4,7 @@ require 'eventmachine'
 require 'faye/websocket'
 require 'json'
 require 'securerandom'
+require 'timeout'
 
 module XRPL
   class Client
@@ -52,7 +53,7 @@ module XRPL
 
     def request(command, params = {})
       id = SecureRandom.uuid
-      @requests[id] = :pending
+      register_pending_request(id)
       payload = {
         id: id,
         command: command
@@ -61,6 +62,39 @@ module XRPL
       send_message(payload)
       # TODO: Implement promise/future or callback for response
       id
+    end
+
+    def request_with_response(command, params = {}, timeout: 10)
+      id = SecureRandom.uuid
+      queue = Queue.new
+      register_pending_request(id, queue: queue)
+
+      payload = {
+        id: id,
+        command: command
+      }.merge(params)
+
+      send_message(payload)
+
+      Timeout.timeout(timeout) { queue.pop }
+    rescue Timeout::Error
+      @requests.delete(id)
+      raise Timeout::Error, "Request timed out after #{timeout} seconds"
+    end
+
+    def request_with_retry(command, params = {}, max_attempts: 3, timeout: 10,
+                           retry_exceptions: [RuntimeError, Timeout::Error], **keyword_params)
+      attempt = 0
+      request_params = keyword_params.empty? ? params : params.merge(keyword_params)
+
+      begin
+        attempt += 1
+        request_with_response(command, request_params, timeout: timeout)
+      rescue *retry_exceptions => error
+        raise error if attempt >= max_attempts
+
+        retry
+      end
     end
 
     def subscribe(**params)
@@ -83,6 +117,10 @@ module XRPL
       request('account_info', **params)
     end
 
+    def account_info_response(**params)
+      request_with_retry('account_info', params)
+    end
+
     def account_lines(**params)
       request('account_lines', **params)
     end
@@ -101,6 +139,45 @@ module XRPL
 
     def account_tx(**params)
       request('account_tx', **params)
+    end
+
+    def account_tx_response(**params)
+      request_with_retry('account_tx', params)
+    end
+
+    def account_tx_all(**params)
+      page_limit = params.delete(:page_limit)
+      max_attempts = params.delete(:max_attempts) || 3
+      timeout = params.delete(:timeout) || 10
+
+      current_params = params.dup
+      responses = []
+
+      loop do
+        response = request_with_retry('account_tx', current_params, max_attempts: max_attempts, timeout: timeout)
+        responses << response
+
+        marker = response.dig('result', 'marker')
+        break unless marker
+        break if page_limit && responses.size >= page_limit
+
+        current_params = current_params.merge(marker: marker)
+      end
+
+      responses
+    end
+
+    def summarize_account_tx(response)
+      result = response.fetch('result', {})
+      transactions = Array(result['transactions'])
+
+      {
+        'ledger_index_min' => result['ledger_index_min'],
+        'ledger_index_max' => result['ledger_index_max'],
+        'transaction_count' => transactions.size,
+        'validated' => result['validated'] == true,
+        'marker_present' => !result['marker'].nil?
+      }
     end
 
     def gateway_balances(**params)
@@ -158,7 +235,13 @@ module XRPL
       return unless message_id
       return unless @requests.key?(message_id)
 
+      request_entry = @requests[message_id]
+      request_entry[:queue]&.push(message) if request_entry.is_a?(Hash)
       @requests.delete(message_id)
+    end
+
+    def register_pending_request(id, queue: nil)
+      @requests[id] = queue ? { queue: queue } : :pending
     end
   end
 end

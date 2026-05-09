@@ -48,6 +48,95 @@ describe XRPL::Client do
     end
   end
 
+  describe '#request_with_retry' do
+    it 'retries transient failures and succeeds within max attempts' do
+      attempts = 0
+      allow(client).to receive(:request_with_response) do
+        attempts += 1
+        raise RuntimeError, 'temporary transport failure' if attempts < 3
+
+        { 'id' => 'ok', 'result' => { 'status' => 'success' } }
+      end
+
+      response = client.request_with_retry('account_info', { account: 'rAccount' }, max_attempts: 3)
+
+      expect(response.dig('result', 'status')).to eq('success')
+      expect(attempts).to eq(3)
+    end
+
+    it 'raises deterministic terminal failure after max attempts' do
+      allow(client).to receive(:request_with_response).and_raise(RuntimeError, 'temporary transport failure')
+
+      expect do
+        client.request_with_retry('account_info', { account: 'rAccount' }, max_attempts: 2)
+      end.to raise_error(RuntimeError, 'temporary transport failure')
+
+      expect(client).to have_received(:request_with_response).exactly(2).times
+    end
+  end
+
+  describe '#account_tx_all' do
+    it 'continues pagination while marker exists and stops when marker is absent' do
+      first_page = {
+        'result' => {
+          'transactions' => [{ 'hash' => 'A' }],
+          'marker' => 'next-page-marker'
+        }
+      }
+      second_page = {
+        'result' => {
+          'transactions' => [{ 'hash' => 'B' }]
+        }
+      }
+
+      expect(client).to receive(:request_with_retry)
+        .with('account_tx', hash_including(account: 'rAccount', limit: 2), max_attempts: 3, timeout: 10)
+        .and_return(first_page)
+      expect(client).to receive(:request_with_retry)
+        .with('account_tx', hash_including(account: 'rAccount', limit: 2, marker: 'next-page-marker'), max_attempts: 3, timeout: 10)
+        .and_return(second_page)
+
+      responses = client.account_tx_all(account: 'rAccount', limit: 2)
+
+      expect(responses).to eq([first_page, second_page])
+    end
+
+    it 'stops pagination when explicit page_limit is reached' do
+      first_page = { 'result' => { 'transactions' => [{ 'hash' => 'A' }], 'marker' => 'm1' } }
+      expect(client).to receive(:request_with_retry).once.and_return(first_page)
+
+      responses = client.account_tx_all(account: 'rAccount', limit: 2, page_limit: 1)
+
+      expect(responses).to eq([first_page])
+    end
+  end
+
+  describe '#summarize_account_tx' do
+    it 'returns deterministic summary shape and does not mutate caller response' do
+      response = {
+        'result' => {
+          'ledger_index_min' => 1,
+          'ledger_index_max' => 100,
+          'validated' => true,
+          'marker' => 'm1',
+          'transactions' => [{ 'hash' => 'A' }, { 'hash' => 'B' }]
+        }
+      }
+      original = Marshal.load(Marshal.dump(response))
+
+      summary = client.summarize_account_tx(response)
+
+      expect(summary).to eq(
+        'ledger_index_min' => 1,
+        'ledger_index_max' => 100,
+        'transaction_count' => 2,
+        'validated' => true,
+        'marker_present' => true
+      )
+      expect(response).to eq(original)
+    end
+  end
+
   describe '#subscribe / #unsubscribe' do
     it 'delegates subscribe to request with subscribe command' do
       expect(client).to receive(:request).with('subscribe', streams: ['ledger'])
@@ -163,5 +252,21 @@ describe XRPL::Client do
     include_examples 'request wrapper', :ledger_current, 'ledger_current', {}
     include_examples 'request wrapper', :ledger_data, 'ledger_data', { ledger_index: 'validated', limit: 2 }
     include_examples 'request wrapper', :ledger_entry, 'ledger_entry', { ledger_index: 'validated', offer: { account: 'rAccount', seq: 1 } }
+  end
+
+  describe 'response helper wrappers' do
+    it 'delegates account_info_response to request_with_retry and returns its value' do
+      response = { 'id' => 'info-id', 'result' => { 'status' => 'success' } }
+      expect(client).to receive(:request_with_retry).and_return(response)
+
+      expect(client.account_info_response(account: 'rAccount')).to eq(response)
+    end
+
+    it 'delegates account_tx_response to request_with_retry and returns its value' do
+      response = { 'id' => 'tx-id', 'result' => { 'status' => 'success' } }
+      expect(client).to receive(:request_with_retry).and_return(response)
+
+      expect(client.account_tx_response(account: 'rAccount')).to eq(response)
+    end
   end
 end
