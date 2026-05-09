@@ -36,3 +36,5 @@ require_relative 'wallet/wallet'
 require_relative 'key-pairs/ed25519'
 require_relative 'key-pairs/secp256k1'
 require_relative 'key-pairs/key_pairs'
+
+require_relative 'xrpl/client'
