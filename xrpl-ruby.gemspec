@@ -1,6 +1,8 @@
+require_relative "lib/xrpl/version"
+
 Gem::Specification.new do |spec|
   spec.name          = "xrpl-ruby"
-  spec.version       = "0.5.2"
+  spec.version       = XRPL::VERSION
   spec.authors       = ["Alexander Busse"]
   spec.email         = ["dev@ledger-direct.com"]
 
@@ -9,7 +11,18 @@ Gem::Specification.new do |spec|
   spec.homepage      = "https://github.com/AlexanderBuzz/xrpl-ruby"
   spec.license       = "MIT"
 
-  spec.files         = Dir["lib/**/*.rb"] + Dir["lib/binary-codec/enums/definitions.json"]
+  spec.required_ruby_version = ">= 3.0"
+
+  spec.metadata = {
+    "homepage_uri"    => "https://github.com/AlexanderBuzz/xrpl-ruby",
+    "source_code_uri" => "https://github.com/AlexanderBuzz/xrpl-ruby",
+    "changelog_uri"   => "https://github.com/AlexanderBuzz/xrpl-ruby/blob/main/CHANGELOG.md",
+    "bug_tracker_uri" => "https://github.com/AlexanderBuzz/xrpl-ruby/issues"
+  }
+
+  spec.files         = Dir["lib/**/*.rb"] +
+                       Dir["lib/binary-codec/enums/definitions.json"] +
+                       ["README.md", "CHANGELOG.md", "LICENSE"]
   spec.bindir        = "bin"
   spec.executables   = spec.files.grep(%r{^bin/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]

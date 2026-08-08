@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative 'xrpl/version'
+
 require_relative 'core/base_x'
 require_relative 'core/base_58_xrp'
 require_relative 'core/core'
