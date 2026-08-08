@@ -38,3 +38,4 @@ require_relative 'key-pairs/secp256k1'
 require_relative 'key-pairs/key_pairs'
 
 require_relative 'xrpl/client'
+require_relative 'xrpl/faucet'
