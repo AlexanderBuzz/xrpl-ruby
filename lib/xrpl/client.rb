@@ -7,6 +7,10 @@ require 'securerandom'
 require 'timeout'
 
 module XRPL
+  # Raised when the WebSocket connection fails to open (or errors) before it
+  # becomes ready to accept requests.
+  class ConnectionError < StandardError; end
+
   class Client
     MAINNET_URL = 'wss://s1.ripple.com'
     TESTNET_URL = 'wss://s.altnet.rippletest.net:51233'
@@ -24,15 +28,32 @@ module XRPL
       @url = resolve_url(url)
       @connection = nil
       @requests = {}
+      @open = false
+      @ready_queue = Queue.new
     end
 
-    def connect
+    # Opens the WebSocket connection.
+    #
+    # By default this is non-blocking (preserving the previous behaviour) and
+    # returns +self+. Pass <tt>wait: true</tt> (or use {#connect!}) to block
+    # until the socket is actually open, so a following request can't race with
+    # connection setup and hit "Not connected".
+    #
+    # @param wait [Boolean] block until the connection is open.
+    # @param timeout [Numeric] seconds to wait when +wait+ is true.
+    # @return [self]
+    def connect(wait: false, timeout: 10)
+      @open = false
+      @ready_queue = Queue.new
+
       Thread.new { EM.run } unless EM.reactor_running?
-      
+
       EM.next_tick do
         @connection = Faye::WebSocket::Client.new(@url)
 
         @connection.on :open do |event|
+          @open = true
+          @ready_queue.push(:open)
           puts "Connected to #{@url}"
         end
 
@@ -40,11 +61,51 @@ module XRPL
           handle_message(JSON.parse(event.data))
         end
 
+        @connection.on :error do |event|
+          @ready_queue.push([:error, event.message])
+        end
+
         @connection.on :close do |event|
-          puts "Connection closed: #{event.code} #{event.reason}"
+          @open = false
           @connection = nil
+          puts "Connection closed: #{event.code} #{event.reason}"
         end
       end
+
+      wait_until_open(timeout: timeout) if wait
+      self
+    end
+
+    # Opens the connection and blocks until it is ready to accept requests.
+    #
+    # @param timeout [Numeric] seconds to wait for the socket to open.
+    # @return [self]
+    def connect!(timeout: 10)
+      connect(wait: true, timeout: timeout)
+    end
+
+    # @return [Boolean] whether the WebSocket connection is currently open.
+    def open?
+      @open
+    end
+
+    # Blocks the calling thread until the connection is open.
+    #
+    # @param timeout [Numeric] seconds to wait before giving up.
+    # @return [true] once the socket is open.
+    # @raise [XRPL::ConnectionError] if the connection reports an error first.
+    # @raise [Timeout::Error] if the socket does not open within +timeout+.
+    def wait_until_open(timeout: 10)
+      return true if @open
+
+      signal = Timeout.timeout(timeout) { @ready_queue.pop }
+      if signal.is_a?(Array) && signal.first == :error
+        raise ConnectionError, "WebSocket connection failed: #{signal.last}"
+      end
+
+      true
+    rescue Timeout::Error
+      raise Timeout::Error, "Connection did not open within #{timeout} seconds"
     end
 
     def disconnect

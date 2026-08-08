@@ -269,4 +269,38 @@ describe XRPL::Client do
       expect(client.account_tx_response(account: 'rAccount')).to eq(response)
     end
   end
+
+  describe 'connection readiness' do
+    it '#open? is false before the socket opens' do
+      expect(client.open?).to be(false)
+    end
+
+    it '#wait_until_open returns immediately when already open' do
+      client.instance_variable_set(:@open, true)
+
+      expect(client.wait_until_open(timeout: 0.1)).to be(true)
+    end
+
+    it '#wait_until_open unblocks once the ready signal is pushed' do
+      queue = client.instance_variable_get(:@ready_queue)
+      Thread.new do
+        sleep 0.05
+        queue.push(:open)
+      end
+
+      expect(client.wait_until_open(timeout: 1)).to be(true)
+    end
+
+    it '#wait_until_open raises ConnectionError when an error signal arrives' do
+      client.instance_variable_get(:@ready_queue).push([:error, 'handshake failed'])
+
+      expect { client.wait_until_open(timeout: 1) }
+        .to raise_error(XRPL::ConnectionError, /handshake failed/)
+    end
+
+    it '#wait_until_open raises Timeout::Error when the socket never opens' do
+      expect { client.wait_until_open(timeout: 0.1) }
+        .to raise_error(Timeout::Error, /did not open/)
+    end
+  end
 end
