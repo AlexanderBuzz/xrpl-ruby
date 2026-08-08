@@ -2,23 +2,22 @@
 
 require_relative '../lib/xrpl-ruby'
 require 'json'
+require 'logger'
 
-client = XRPL::Client.new(XRPL::Client::TESTNET_URL)
-client.connect
+# Look up account information on the XRPL Testnet.
 
-sleep 1
+# The library is silent by default; opt in to diagnostics by passing a logger.
+logger = Logger.new($stdout)
+logger.formatter = proc { |_severity, _time, _progname, msg| "#{msg}\n" }
 
-request_id = client.account_info(
+client = XRPL::Client.new(:testnet, logger: logger)
+client.connect! # blocks until the connection is ready — no more sleep guesswork
+
+response = client.account_info_response(
   account: 'rfvvroBArQixuN2z1eLAsZchXwMdo7Ds9A',
   ledger_index: 'validated'
 )
 
-puts JSON.pretty_generate(
-  command: 'account_info',
-  request_id: request_id,
-  network: XRPL::Client::TESTNET_URL,
-  account: 'rfvvroBArQixuN2z1eLAsZchXwMdo7Ds9A'
-)
+puts JSON.pretty_generate(response)
 
-sleep 1
 client.disconnect

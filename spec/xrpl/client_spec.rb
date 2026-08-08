@@ -303,4 +303,123 @@ describe XRPL::Client do
         .to raise_error(Timeout::Error, /did not open/)
     end
   end
+
+  describe 'logging' do
+    it 'stays silent (returns nil, no error) when no logger is injected' do
+      expect(client.send(:log, 'hello')).to be_nil
+    end
+
+    it 'forwards messages to an injected logger at info level' do
+      logger = double('logger')
+      expect(logger).to receive(:info).with('hello')
+
+      described_class.new('wss://example.com', logger: logger).send(:log, 'hello')
+    end
+  end
+
+  describe 'transaction lifecycle' do
+    let(:wallet) { instance_double(Wallet::Wallet) }
+    let(:base_tx) do
+      { 'TransactionType' => 'Payment', 'Account' => 'rSource', 'Destination' => 'rDest', 'Amount' => '1000000' }
+    end
+
+    describe '#autofill' do
+      it 'fills Sequence, Fee and LastLedgerSequence from the ledger' do
+        allow(client).to receive(:account_info_response)
+          .and_return('result' => { 'account_data' => { 'Sequence' => 42 } })
+        allow(client).to receive(:request_with_retry).with('fee')
+          .and_return('result' => { 'drops' => { 'open_ledger_fee' => '12' } })
+        allow(client).to receive(:request_with_retry).with('ledger_current')
+          .and_return('result' => { 'ledger_current_index' => 100 })
+
+        tx = client.autofill(base_tx)
+
+        expect(tx['Sequence']).to eq(42)
+        expect(tx['Fee']).to eq('12')
+        expect(tx['LastLedgerSequence']).to eq(120)
+      end
+
+      it 'never overwrites values that are already present' do
+        tx = client.autofill(base_tx.merge('Sequence' => 7, 'Fee' => '5', 'LastLedgerSequence' => 9))
+
+        expect(tx.values_at('Sequence', 'Fee', 'LastLedgerSequence')).to eq([7, '5', 9])
+      end
+
+      it 'falls back to the default fee when the server fee is unavailable' do
+        allow(client).to receive(:account_info_response)
+          .and_return('result' => { 'account_data' => { 'Sequence' => 1 } })
+        allow(client).to receive(:request_with_retry).with('fee').and_raise(RuntimeError, 'boom')
+        allow(client).to receive(:request_with_retry).with('ledger_current')
+          .and_return('result' => { 'ledger_current_index' => 5 })
+
+        expect(client.autofill(base_tx)['Fee']).to eq(described_class::DEFAULT_FEE_DROPS.to_s)
+      end
+    end
+
+    describe '#submit' do
+      it 'signs with the wallet and submits the resulting tx_blob' do
+        allow(wallet).to receive(:sign).and_return('tx_blob' => 'DEADBEEF', 'hash' => 'HASH1')
+
+        captured = nil
+        allow(client).to receive(:request_with_response) do |command, params, **_opts|
+          captured = [command, params]
+          { 'result' => { 'engine_result' => 'tesSUCCESS' } }
+        end
+
+        tx = base_tx.merge('Sequence' => 1, 'Fee' => '10', 'LastLedgerSequence' => 100)
+        response = client.submit(tx, wallet: wallet, autofill: false)
+
+        expect(captured[0]).to eq('submit')
+        expect(captured[1]).to include('tx_blob' => 'DEADBEEF')
+        expect(response.dig('result', 'engine_result')).to eq('tesSUCCESS')
+      end
+    end
+
+    describe '#submit_and_wait' do
+      before { allow(wallet).to receive(:sign).and_return('tx_blob' => 'DEADBEEF', 'hash' => 'HASH1') }
+
+      it 'raises ArgumentError when LastLedgerSequence is missing' do
+        expect { client.submit_and_wait(base_tx, wallet: wallet, autofill: false) }
+          .to raise_error(ArgumentError, /LastLedgerSequence/)
+      end
+
+      it 'returns the validated tx response' do
+        tx = base_tx.merge('LastLedgerSequence' => 100)
+        allow(client).to receive(:request_with_response)
+          .and_return('result' => { 'engine_result' => 'tesSUCCESS' })
+        allow(client).to receive(:request_with_retry) do |command, *|
+          { 'result' => { 'validated' => true, 'meta' => {} } } if command == 'tx'
+        end
+
+        result = client.submit_and_wait(tx, wallet: wallet, autofill: false, timeout: 5)
+
+        expect(result.dig('result', 'validated')).to be(true)
+      end
+
+      it 'raises TransactionError when the transaction fails on-ledger' do
+        tx = base_tx.merge('LastLedgerSequence' => 100)
+        allow(client).to receive(:request_with_response)
+          .and_return('result' => { 'engine_result' => 'tecUNFUNDED_PAYMENT' })
+        allow(client).to receive(:request_with_retry) do |command, *|
+          { 'result' => { 'error' => 'somethingBad' } } if command == 'tx'
+        end
+
+        expect { client.submit_and_wait(tx, wallet: wallet, autofill: false, timeout: 5) }
+          .to raise_error(XRPL::TransactionError, /failed/)
+      end
+
+      it 'raises TransactionError when the ledger passes LastLedgerSequence before validation' do
+        tx = base_tx.merge('LastLedgerSequence' => 100)
+        allow(client).to receive(:request_with_response)
+          .and_return('result' => { 'engine_result' => 'tesSUCCESS' })
+        allow(client).to receive(:request_with_retry) do |command, *|
+          { 'result' => { 'error' => 'txnNotFound' } } if command == 'tx'
+        end
+        allow(client).to receive(:current_ledger_index).and_return(101)
+
+        expect { client.submit_and_wait(tx, wallet: wallet, autofill: false, timeout: 5) }
+          .to raise_error(XRPL::TransactionError, /passed/)
+      end
+    end
+  end
 end
