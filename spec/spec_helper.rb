@@ -22,7 +22,7 @@ if ENV['COVERAGE']
   require 'simplecov-cobertura'
 
   SimpleCov.start do
-    skip '/spec/'
+    add_filter '/spec/'   # DSL-Methode im start-Block; portabel über SimpleCov-Versionen
     enable_coverage :branch
     # Cobertura XML is what Codecov ingests; the HTML report stays for humans.
     formatter SimpleCov::Formatter::MultiFormatter.new([
