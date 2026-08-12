@@ -14,6 +14,10 @@ jobs:
       fail-fast: false
       matrix:
         ruby: ['3.0', '3.1', '3.2', '3.3']
+        # Ruby 4.0 (stable since 2025-12) is experimental and may fail (some gems may be lagging).
+        include:
+          - ruby: '4.0'
+            experimental: true
 
     steps:
       - name: Checkout
@@ -28,6 +32,7 @@ jobs:
       # Integration/network specs are tagged :integration and are excluded here.
       # To run them locally against the real Testnet: XRPL_NETWORK=1 bundle exec rspec
       - name: Run unit tests
+        continue-on-error: ${{ matrix.experimental || false }}
         env:
           COVERAGE: '1'
         run: bundle exec rspec --tag '~integration'
