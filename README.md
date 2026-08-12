@@ -1,5 +1,12 @@
 # XRPL-Ruby
 
+[![CI](https://github.com/AlexanderBuzz/xrpl-ruby/actions/workflows/ci.yml/badge.svg)](https://github.com/AlexanderBuzz/xrpl-ruby/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/AlexanderBuzz/xrpl-ruby/branch/main/graph/badge.svg)](https://codecov.io/gh/AlexanderBuzz/xrpl-ruby)
+[![Gem Version](https://badge.fury.io/rb/xrpl-ruby.svg)](https://rubygems.org/gems/xrpl-ruby)
+[![Downloads](https://img.shields.io/gem/dt/xrpl-ruby)](https://rubygems.org/gems/xrpl-ruby)
+[![Ruby](https://img.shields.io/badge/ruby->=_3.0-CC342D?logo=ruby&logoColor=white)](https://www.ruby-lang.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A pure-Ruby library to interact with the [XRP Ledger](https://xrpl.org) (XRPL) blockchain.
 
 ## Features

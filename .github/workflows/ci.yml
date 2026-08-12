@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Ruby ${{ matrix.ruby }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ['3.0', '3.1', '3.2', '3.3']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby ${{ matrix.ruby }}
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true # runs 'bundle install' and caches installed gems
+
+      # Integration/network specs are tagged :integration and are excluded here.
+      # To run them locally against the real Testnet: XRPL_NETWORK=1 bundle exec rspec
+      - name: Run unit tests
+        env:
+          COVERAGE: '1'
+        run: bundle exec rspec --tag '~integration'
+
+      # Upload coverage once (from the newest Ruby) to avoid duplicate reports.
+      - name: Upload coverage to Codecov
+        if: matrix.ruby == '3.3'
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/coverage.xml
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

@@ -14,6 +14,24 @@
 #
 # See https://rubydoc.info/gems/rspec-core/RSpec/Core/Configuration
 # spec/spec_helper.rb
+
+# Coverage must start before the library is loaded so every line is tracked.
+# Enabled only when COVERAGE=1 (e.g. in CI) to keep local runs fast.
+if ENV['COVERAGE']
+  require 'simplecov'
+  require 'simplecov-cobertura'
+
+  SimpleCov.start do
+    skip '/spec/'
+    enable_coverage :branch
+    # Cobertura XML is what Codecov ingests; the HTML report stays for humans.
+    formatter SimpleCov::Formatter::MultiFormatter.new([
+      SimpleCov::Formatter::HTMLFormatter,
+      SimpleCov::Formatter::CoberturaFormatter
+    ])
+  end
+end
+
 require 'xrpl-ruby'
 
 RSpec.configure do |config|
