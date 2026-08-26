@@ -2,6 +2,8 @@
 
 module BinaryCodec
   class STArray < SerializedType
+    ARRAY_END_MARKER = 0xF1
+
     def initialize(byte_buf = nil)
       super(byte_buf || [])
     end
@@ -38,7 +40,7 @@ module BinaryCodec
             raise StandardError, "STArray item must be a Hash, got #{item.class}"
           end
         end
-        bytes.concat([0xF1]) # ArrayEndMarker
+        bytes.concat([ARRAY_END_MARKER])
         return STArray.new(bytes)
       end
 
@@ -53,7 +55,7 @@ module BinaryCodec
       bytes = []
       until parser.end?
         # Check if we reached the ArrayEndMarker (0xF1)
-        if parser.peek == 0xF1
+        if parser.peek == ARRAY_END_MARKER
           parser.read(1) # Consume 0xF1
           break
         end
@@ -70,6 +72,11 @@ module BinaryCodec
         bytes.concat(obj.to_bytes)
         bytes.concat([0xE1]) unless bytes.last == 0xE1
       end
+
+      # The ArrayEndMarker has to go back in. Without it the reconstructed
+      # bytes have no terminator, so re-parsing them - which is what to_json
+      # does - runs the array on into whatever field follows it.
+      bytes.concat([ARRAY_END_MARKER])
       STArray.new(bytes)
     end
 
@@ -82,23 +89,14 @@ module BinaryCodec
       parser = BinaryParser.new(to_hex)
       result = []
       until parser.end?
-        begin
-          # Check if we reached the ArrayEndMarker (0xF1) or if peek fails
-          break if parser.peek == 0xF1
-          
-          # Read field header of the array item (e.g., "Signer")
-          field_header = parser.read_field_header
-          field_name = definitions.get_field_name_from_header(field_header)
-          
-          # Read the STObject item
-          obj = STObject.from_parser(parser)
-          
-          # Array item in JSON is { "FieldName": { ... } }
-          item_json = obj.to_json(definitions)
-          result << { field_name => item_json.is_a?(String) ? JSON.parse(item_json) : item_json }
-        rescue => e
-          break
-        end
+        break if parser.peek == ARRAY_END_MARKER
+
+        # Each item is an STObject behind its own field header, e.g. "Signer".
+        field_header = parser.read_field_header
+        field_name = definitions.get_field_name_from_header(field_header)
+        obj = STObject.from_parser(parser)
+
+        result << { field_name => obj.to_json(definitions) }
       end
       result
     end

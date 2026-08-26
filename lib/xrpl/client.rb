@@ -35,6 +35,19 @@ module XRPL
 
     attr_reader :url, :connection
 
+    # Accepts a transaction as a plain Hash or as an XRPL::Transaction and
+    # hands back the Hash the rest of the pipeline works with. Anything else
+    # is passed through untouched, so a pre-signed blob still reaches submit.
+    #
+    # @param transaction [Hash, XRPL::Transaction, Object]
+    # @return [Hash, Object]
+    def self.to_transaction_hash(transaction)
+      return transaction if transaction.is_a?(Hash)
+      return transaction.to_h if transaction.is_a?(XRPL::Transaction)
+
+      transaction
+    end
+
     # @param url [String, Symbol] a network alias (:testnet/:mainnet/:devnet) or a WebSocket URL.
     # @param logger [Logger, nil] optional logger for diagnostic messages. When nil
     #   (the default), the client stays silent — a library must not write to the
@@ -306,11 +319,11 @@ module XRPL
     # Fills in the fields a transaction needs before signing: +Sequence+, +Fee+
     # and +LastLedgerSequence+. Existing values are never overwritten.
     #
-    # @param transaction [Hash] the (string-keyed) transaction to complete.
+    # @param transaction [Hash, XRPL::Transaction] the transaction to complete.
     # @param signers_count [Integer] number of signatures for multisign fee scaling.
     # @return [Hash] a copy of the transaction with the missing fields filled in.
     def autofill(transaction, signers_count: 0)
-      tx = transaction.dup
+      tx = self.class.to_transaction_hash(transaction).dup
       tx['Sequence'] ||= fetch_sequence(tx.fetch('Account'))
       tx['Fee'] ||= calculate_fee(signers_count)
       tx['LastLedgerSequence'] ||= current_ledger_index + LEDGER_OFFSET
@@ -399,7 +412,8 @@ module XRPL
     def prepare_for_submit(transaction, wallet:, autofill:)
       raise ArgumentError, 'wallet: is required to sign the transaction' if wallet.nil?
 
-      tx = transaction.is_a?(Hash) ? transaction.dup : transaction
+      tx = self.class.to_transaction_hash(transaction)
+      tx = tx.dup if tx.is_a?(Hash)
       tx = autofill(tx) if autofill && tx.is_a?(Hash)
 
       signed = wallet.sign(tx)

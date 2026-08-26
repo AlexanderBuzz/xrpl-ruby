@@ -51,8 +51,15 @@ module BinaryCodec
     end
 
     # Returns the JSON representation of the currency.
+    #
+    # The two ignored parameters are the SerializedType contract. Every type
+    # is called as to_json(definitions, field_name) from STObject, so a
+    # zero-arity to_json raises ArgumentError for every Currency field nested
+    # in an object - which is what silently dropped BaseAsset and QuoteAsset
+    # from PriceDataSeries.
+    #
     # @return [String] The ISO code or hex string.
-    def to_json
+    def to_json(_definitions = nil, _field_name = nil)
       iso = self.iso
       return iso unless iso.nil?
 

@@ -99,8 +99,11 @@ module BinaryCodec
       when "UInt160" then Uint160
       when "UInt192" then Uint192
       when "UInt256" then Uint256
-      when "UInt384" then Uint384
-      when "UInt512" then Uint512
+      # The reference definitions call these Hash384/Hash512. The old UInt
+      # names are kept so a caller passing them still resolves.
+      when "Hash384", "UInt384" then Uint384
+      when "Hash512", "UInt512" then Uint512
+      when "Number" then Number
       when "Int32" then Int32
       when "Int64" then Int64
       when "PathSet" then PathSet

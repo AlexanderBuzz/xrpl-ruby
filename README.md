@@ -69,6 +69,48 @@ puts result.dig('result', 'meta', 'TransactionResult') # => "tesSUCCESS"
 client.disconnect
 ```
 
+## Transactions
+
+A transaction can always be a plain Hash, as above. The transaction classes
+are an addition on top of that: they are generated from the field formats in
+`definitions.json`, so they know which fields a type accepts, which of them
+are required, and what its flags are called.
+
+```ruby
+payment = XRPL::Transaction::Payment.new(
+  account:     wallet.classic_address,
+  destination: receiver.classic_address,
+  amount:      '1000000',
+  flags:       XRPL::Transaction::Payment::TF_PARTIAL_PAYMENT
+)
+
+payment.validate!   # raises before a round trip is spent
+client.submit_and_wait(payment, wallet: wallet)
+```
+
+Fields are written in snake_case and stored under the ledger's own names, so
+`#to_h` produces exactly what the binary codec expects:
+
+```ruby
+payment.to_h
+# => {"TransactionType"=>"Payment", "Account"=>"r...", "Destination"=>"r...",
+#     "Amount"=>"1000000", "Flags"=>131072}
+```
+
+A field the type does not define is rejected when it is set, rather than by
+the server several seconds later:
+
+```ruby
+payment.limit_amount = {}   # NoMethodError
+XRPL::Transaction::Payment.new(limit_amount: {})
+# => XRPL::Transaction::ValidationError: Payment has no field LimitAmount
+```
+
+`XRPL::Transaction.from(hash)` builds the matching class from a transaction
+hash, which is useful for anything read back off the ledger. Note that
+`validate!` follows rippled's formats: it checks what the ledger requires for
+serialisation, which is not always what a transaction needs to be meaningful.
+
 The client is silent by default. To see diagnostic output, pass a logger:
 
 ```ruby

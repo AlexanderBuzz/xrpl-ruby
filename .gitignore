@@ -45,12 +45,9 @@ Session.vim
 
 # Project specific
 .editorconfig
-TODO.md
-/_junie/
-/ts_source
+
+# Manual tests
 /_scripts
-/_docs
-the_work.jpg
 
 # OS generated files
 .DS_Store

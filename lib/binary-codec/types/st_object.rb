@@ -119,9 +119,14 @@ module BinaryCodec
       STObject.new(list.to_bytes)
     end
 
-    # Method to get the JSON interpretation of self.bytes
+    # The JSON interpretation of self.bytes.
     #
-    # @return [String] A stringified JSON object
+    # Returns a Hash, not a JSON string. It used to return a string, which
+    # forced every nested value to be serialised and parsed again on the way
+    # out - and that round trip is what turned native XRP amounts into
+    # integers, because JSON.parse("370000000") is a number.
+    #
+    # @return [Hash] The decoded object
     def to_json(_definitions = nil, _field_name = nil)
       definitions = _definitions || Definitions.instance
       parser = BinaryParser.new(to_hex)
@@ -129,7 +134,7 @@ module BinaryCodec
 
       until parser.end?
         begin
-          # Check if we are at the end marker (0xE1) or if peek fails
+          # Check if we are at the end marker (0xE1)
           break if parser.peek == 0xE1
           
           field = parser.read_field
@@ -142,21 +147,18 @@ module BinaryCodec
           else
             value_obj = parser.read_field_value(field)
             value = value_obj.to_json(definitions, field.name)
-            
-            # Re-parse if it's a nested structure to keep it as a Hash/Array in the accumulator
-            if field.type == 'STObject' || field.type == 'Amount' || field.type == 'STArray'
-              value = JSON.parse(value) if value.is_a?(String)
-            end
+
+            # Some types still hand back a serialised structure. Parse only
+            # what actually is one: an Amount for XRP is the string
+            # "370000000", and parsing that yields a number where rippled has
+            # a string.
+            value = JSON.parse(value) if value.is_a?(String) && value.start_with?('{', '[')
           end
           accumulator[field.name] = value
-        rescue => e
-          break
         end
       end
 
-      # Existing tests expect a JSON string for STObject#to_json
-      # To satisfy spec/binary-codec/types/st_object_spec.rb:10
-      JSON.generate(accumulator)
+      accumulator
     end
 
     private

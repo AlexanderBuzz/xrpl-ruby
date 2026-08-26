@@ -19,10 +19,10 @@ RSpec.describe BinaryCodec::Uint do
       expect(uint8_class.from_hex('FF').value_of).to eq(255)
     end
 
-    it 'encodes a Uint8' do
-      expect(uint8_class.from(0).to_json).to eq('00')
-      expect(uint8_class.from(15).to_json).to eq('0F')
-      expect(uint8_class.from(255).to_json).to eq('FF')
+    it 'renders a Uint8 as a number' do
+      expect(uint8_class.from(0).to_json).to eq(0)
+      expect(uint8_class.from(15).to_json).to eq(15)
+      expect(uint8_class.from(255).to_json).to eq(255)
     end
   end
 
@@ -33,10 +33,10 @@ RSpec.describe BinaryCodec::Uint do
       expect(uint16_class.from_hex('FFFF').value_of).to eq(65535)
     end
 
-    it 'encodes a Uint16' do
-      expect(uint16_class.from(0).to_json).to eq('0000')
-      expect(uint16_class.from(15).to_json).to eq('000F')
-      expect(uint16_class.from(65535).to_json).to eq('FFFF')
+    it 'renders a Uint16 as a number' do
+      expect(uint16_class.from(0).to_json).to eq(0)
+      expect(uint16_class.from(15).to_json).to eq(15)
+      expect(uint16_class.from(65535).to_json).to eq(65535)
     end
   end
 
@@ -47,10 +47,10 @@ RSpec.describe BinaryCodec::Uint do
       expect(uint32_class.from_hex('FFFFFFFF').value_of).to eq(4294967295)
     end
 
-    it 'encodes a Uint32' do
-      expect(uint32_class.from(0).to_json).to eq('00000000')
-      expect(uint32_class.from(15).to_json).to eq('0000000F')
-      expect(uint32_class.from(4294967295).to_json).to eq('FFFFFFFF')
+    it 'renders a Uint32 as a number' do
+      expect(uint32_class.from(0).to_json).to eq(0)
+      expect(uint32_class.from(15).to_json).to eq(15)
+      expect(uint32_class.from(4294967295).to_json).to eq(4294967295)
     end
   end
 
@@ -61,10 +61,18 @@ RSpec.describe BinaryCodec::Uint do
       expect(uint64_class.from_hex('FFFFFFFFFFFFFFFF').value_of).to eq(18446744073709551615)
     end
 
-    it 'encodes a Uint64' do
+    # A UInt64 stays a hex string: the value does not survive a round trip
+    # through a JSON number.
+    it 'renders a Uint64 as a hex string' do
       expect(uint64_class.from(0).to_json).to eq('0000000000000000')
       expect(uint64_class.from(255).to_json).to eq('00000000000000FF')
       expect(uint64_class.from(18446744073709551615).to_json).to eq('FFFFFFFFFFFFFFFF')
+    end
+
+    # The MPToken amount fields are the documented exception.
+    it 'renders the MPToken amount fields in base 10' do
+      expect(uint64_class.from(255).to_json(nil, 'MaximumAmount')).to eq('255')
+      expect(uint64_class.from(255).to_json(nil, 'OutstandingAmount')).to eq('255')
     end
   end
 end

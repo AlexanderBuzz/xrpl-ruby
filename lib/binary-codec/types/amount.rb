@@ -166,8 +166,11 @@ module BinaryCodec
         
         # value = mantissa * 10^exponent
         value = BigDecimal(mantissa_int) * (BigDecimal(10)**exponent)
-        value = -value unless is_positive
-        
+
+        # A zero IOU has its own encoding in which the sign bit is not set, so
+        # negating it would produce "-0" where rippled writes "0".
+        value = -value unless is_positive || mantissa_int.zero?
+
         # Format the value string to match xrpl.js (stripping trailing .0)
         formatted_value = value.to_s('F').sub(/\.0$/, '')
 

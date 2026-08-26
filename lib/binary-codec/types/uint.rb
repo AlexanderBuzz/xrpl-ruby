@@ -3,6 +3,15 @@
 module BinaryCodec
 
   class Uint < ComparableSerializedType
+    # UInt64 fields that rippled renders in base 10 rather than as hex. They
+    # hold MPToken amounts, where a hex string would be a needless surprise.
+    BASE10_UINT64_FIELDS = %w[
+      MaximumAmount
+      OutstandingAmount
+      MPTAmount
+      LockedAmount
+    ].freeze
+
     # Returns the width of the Uint type in bytes.
     # @return [Integer] The width.
     def self.width
@@ -93,11 +102,20 @@ module BinaryCodec
         end
       end
 
-      # For Uint8/16/32/64 and Int32/64 we return padded hex, to satisfy existing Ruby tests.
-      # We use unsigned value for hex representation of signed types.
-      u_val = value_of
-      u_val += (1 << (self.class.width * 8)) if u_val < 0
-      return u_val.to_s(16).upcase.rjust(self.class.width * 2, '0')
+      # rippled renders the narrow unsigned integers as JSON numbers and UInt64
+      # as a 16 digit hex string, because a UInt64 does not survive a round trip
+      # through a JSON number. The MPToken amount fields are the exception to
+      # that exception: they are UInt64 but carry a base 10 string.
+      #
+      # Everything wider than 8 bytes (Uint96 and up) is hash-like and stays
+      # hex. Do not widen the numeric branch to cover it.
+      val = value_of
+      return val if self.class.width < 8
+      return val.to_s if self.class.width == 8 && BASE10_UINT64_FIELDS.include?(_field_name)
+
+      # Hex is unsigned, so a negative signed value has to wrap first.
+      val += (1 << (self.class.width * 8)) if val < 0
+      val.to_s(16).upcase.rjust(self.class.width * 2, '0')
     end
     # @param other [Uint] The other Uint to compare to.
     # @return [Integer] Comparison result (-1, 0, or 1).

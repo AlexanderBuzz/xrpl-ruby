@@ -47,6 +47,14 @@ module BinaryCodec
 
      end
 
+    # The parsed definitions.json, for the sections this class does not index
+    # itself - TRANSACTION_FORMATS and TRANSACTION_FLAGS, which the transaction
+    # models are built from.
+    #
+    # @return [Hash] the raw document
+    attr_reader :definitions
+    alias raw definitions
+
     # Returns the singleton instance of the Definitions class.
     # @return [Definitions] The singleton instance.
     def self.instance
