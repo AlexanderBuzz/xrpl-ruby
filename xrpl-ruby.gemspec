@@ -20,9 +20,14 @@ Gem::Specification.new do |spec|
     "bug_tracker_uri" => "https://github.com/AlexanderBuzz/xrpl-ruby/issues"
   }
 
-  spec.files         = Dir["lib/**/*.rb"] +
-                       Dir["lib/binary-codec/enums/definitions.json"] +
-                       ["README.md", "CHANGELOG.md", "LICENSE"]
+  # Everything under lib/, not just the Ruby files. definitions.json is loaded
+  # at require time to build the transaction models, so leaving a data file out
+  # of the package breaks the gem for anyone who installs it while every local
+  # run stays green - the files are on disk either way. spec/packaging_spec.rb
+  # guards this.
+  spec.files         = Dir["lib/**/*"].select { |path|
+                         File.file?(path) && !File.basename(path).start_with?(".")
+                       } + ["README.md", "CHANGELOG.md", "LICENSE"]
   spec.bindir        = "bin"
   spec.executables   = spec.files.grep(%r{^bin/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]

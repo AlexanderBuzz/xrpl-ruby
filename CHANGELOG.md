@@ -56,6 +56,10 @@ without any spec loading them, so the suite reported green while decoding
   type map keeps the old names resolving.
 - `Client#autofill`, `#submit` and `#submit_and_wait` accept a transaction
   model as well as a Hash.
+- The gemspec packages everything under `lib/`, not only the `.rb` files. Data
+  files previously needed an entry of their own, and a forgotten one would have
+  broken the installed gem while every local run stayed green, because the
+  working copy has the file either way. `spec/packaging_spec.rb` checks it now.
 
 ### Fixed
 
