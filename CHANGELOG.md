@@ -32,9 +32,48 @@ transactions 38/39, accountState 262/263 decode.
 
 ### Added
 
+- **Ledger entry models** — `XRPL::LedgerEntry::AccountRoot`,
+  `::RippleState`, `::Offer` and the other 28 types, generated from
+  `LEDGER_ENTRY_FORMATS` the way the transaction models are generated from
+  `TRANSACTION_FORMATS`. `XRPL::LedgerEntry.from(node)` builds the right
+  class from anything `ledger_entry`, `account_objects` or `ledger_data`
+  returns and keeps rippled's `index` alongside. Every `lsf` flag is a
+  constant on its type. All 263 reference ledger entries round-trip through
+  their model unchanged.
+- **Flag helpers** on transactions and ledger entries: `#flag?` takes the
+  ledger's name, the constant's name or the bit, `#flag_names` lists what
+  is set.
+- **Fees by transaction type.** `autofill` now charges what rippled charges:
+  `EscrowFinish` pays for its `Fulfillment` (base × (33 + bytes / 16)),
+  `AccountDelete`, `AMMCreate` and `VaultCreate` cost the owner reserve
+  from `server_state`, a `Batch` pays two base fees plus those of its inner
+  transactions, the confidential MPT transactions cost ten base fees, and
+  multisigning adds one base fee per signature. Ordinary fees are capped at
+  2 XRP (`Client.new(url, max_fee_drops:)`); the reserve-priced types are
+  not. The rules are a pure module, `XRPL::Fee.calculate`, and the same
+  ones xrpl.js applies. Before, every transaction paid the base fee, so an
+  AccountDelete or an EscrowFinish with a fulfillment could not be
+  autofilled.
+- **Payment channel claims.** `Wallet#sign_payment_channel_claim(channel,
+  drops)` and `#verify_payment_channel_claim`, plus
+  `Wallet.verify_payment_channel_claim(..., public_key)` for the receiving
+  side; `BinaryCodec.signing_claim_data` underneath. Checked against the
+  xrpl.js signature vector byte for byte.
+- The hash prefixes for batch, counterparty and sponsor signatures
+  (`fixCleanup3_4_0`) are in `BinaryCodec::HASH_PREFIX`; the signing
+  helpers for them are not written yet.
 - `Definitions#delegatable_permissions`, and readers for the transaction
   type, ledger entry type and result tables the codec resolves names
   against.
+
+### Changed
+
+- `XRPL::Transaction` is built on a new `XRPL::Model` base shared with
+  `XRPL::LedgerEntry`. Its public surface is unchanged;
+  `Transaction::ValidationError` is now `Model::ValidationError`, reachable
+  under both names. A model rejects a hash whose type field contradicts the
+  class (`Payment.new('TransactionType' => 'TrustSet')`), where it used to
+  keep the foreign value and serialise a TrustSet.
 - The transaction models pick up the 3.4.0 fields without a code change:
   `VaultCreate.new(vault_kind:, subscription_date:, redemption_date:)`.
 - A parity spec that pins `definitions.json` to the 3.4.0 digest and fails
