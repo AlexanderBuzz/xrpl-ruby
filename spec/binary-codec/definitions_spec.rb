@@ -59,10 +59,49 @@ RSpec.describe 'definitions.json' do
     end
   end
 
-  # The file is taken verbatim from XRPLF (xrpl.js and xrpl-py ship byte
-  # identical copies). Nothing in the codec behaves differently because of the
-  # entries below - no fixture exercises them yet - so without these checks a
-  # revert to an older definitions.json would go unnoticed.
+  # The file is what a rippled 3.4.0 node reports through `server_definitions`
+  # (s1.ripple.com, September 2026). ripple-binary-codec 2.11.0 ships the same
+  # content plus four *KeyEpoch fields from rippled's development branch,
+  # which no release carries and whose ordinals could still move; they are
+  # deliberately not here. `hash` is the node's own digest of the tables, so
+  # a change to any entry fails this group and has to be argued for.
+  describe 'parity with rippled 3.4.0' do
+    it 'carries the digest rippled 3.4.0 reports for these tables' do
+      expect(DEFINITIONS['hash'])
+        .to eq('1EA05B0FC11101F7C500BD0DAC794A8BC746A7FBA6250B75489603EB820E0FF5')
+      expect(DEFINITIONS['FIELDS'].size).to eq(357)
+    end
+
+    it 'knows the LendingProtocolV1_1 fields' do
+      names = DEFINITIONS['FIELDS'].map(&:first)
+
+      expect(names).to include('VaultKind', 'SubscriptionDate', 'RedemptionDate',
+                               'LEVersion', 'ContractResult')
+      expect(DEFINITIONS['TRANSACTION_FORMATS']['VaultCreate'].map { |f| f['name'] })
+        .to include('VaultKind', 'SubscriptionDate', 'RedemptionDate')
+    end
+
+    it 'carries no field from the rippled development branch' do
+      names = DEFINITIONS['FIELDS'].map(&:first)
+
+      expect(names.grep(/KeyEpoch/)).to be_empty
+    end
+
+    # rippled 3.4.0 dropped the 27 Hook* fields plus EmitGeneration and
+    # EmittedTxn; Hooks is a Xahau feature and was never activated on the XRP
+    # Ledger. Six other Emit* fields survive in 3.4.0's sfields.macro, so
+    # they stay.
+    it 'carries no Hook fields' do
+      names = DEFINITIONS['FIELDS'].map(&:first)
+
+      expect(names.grep(/\AHook/)).to be_empty
+      expect(names).to include('EmitBurden')
+    end
+  end
+
+  # Nothing in the codec behaves differently because of the entries below -
+  # no fixture exercises them yet - so without these checks a revert to an
+  # older definitions.json would go unnoticed.
   describe 'sync with the reference definitions' do
     it 'uses the reference names for the wide hash types' do
       expect(DEFINITIONS['TYPES']).to include('Hash384' => 22, 'Hash512' => 23)

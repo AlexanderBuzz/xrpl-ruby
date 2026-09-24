@@ -203,4 +203,20 @@ RSpec.describe XRPL::Transaction do
         .to raise_error(described_class::ValidationError, /no TransactionType/)
     end
   end
+
+  # The models follow definitions.json, so a sync reaches them without any
+  # code change. rippled 3.4.0 (LendingProtocolV1_1) is the first such sync.
+  describe 'rippled 3.4.0 formats' do
+    it 'gives VaultCreate the closed-ended vault fields' do
+      tx = XRPL::Transaction::VaultCreate.new(
+        account: 'rBKPS4oLSaV2KVVuHH8EpQqMGgGefGFQs7',
+        vault_kind: 1,
+        subscription_date: 800_000_000,
+        redemption_date: 810_000_000
+      )
+
+      expect(tx.to_h).to include('VaultKind' => 1, 'SubscriptionDate' => 800_000_000,
+                                 'RedemptionDate' => 810_000_000)
+    end
+  end
 end

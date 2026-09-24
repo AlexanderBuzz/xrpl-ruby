@@ -5,6 +5,49 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+The codec now targets **rippled 3.4.0** (released 2026-09-17) and passes the
+ripple-binary-codec 2.11.0 fixture set: 39 transactions and 263 ledger
+entries, both directions (302 cases; 287 before). Measured before the change:
+transactions 38/39, accountState 262/263 decode.
+
+### Breaking
+
+- **`definitions.json` is rippled 3.4.0.** It is what a 3.4.0 node reports
+  through `server_definitions` (s1.ripple.com), with the node's own digest in
+  `hash`. FIELDS 381 → 357: the 27 `Hook*` fields plus `EmitGeneration` and
+  `EmittedTxn` are gone, because rippled dropped Hooks; a blob carrying one
+  of them no longer decodes. Added: `VaultKind`, `SubscriptionDate`,
+  `RedemptionDate`, `LEVersion`, `ContractResult` (LendingProtocolV1_1,
+  closed-ended vaults), and `CredentialIDs` on `VaultWithdraw` and
+  `LoanBrokerCoverWithdraw`. ripple-binary-codec's `main` additionally
+  carries four `*KeyEpoch` fields from rippled's development branch; they
+  are in no release and deliberately not here.
+- **`PermissionValue` decodes to its name.** A `DelegateSet` permission is
+  a UInt32 that rippled renders by name: a transaction type as its code plus
+  one (`"Payment"` = 1), the twelve granular permissions from 65537
+  (`"TrustlineAuthorize"`). Encoding accepts the names; they were silently
+  serialised as 0 before.
+
+### Added
+
+- `Definitions#delegatable_permissions`, and readers for the transaction
+  type, ledger entry type and result tables the codec resolves names
+  against.
+- The transaction models pick up the 3.4.0 fields without a code change:
+  `VaultCreate.new(vault_kind:, subscription_date:, redemption_date:)`.
+- A parity spec that pins `definitions.json` to the 3.4.0 digest and fails
+  if a Hook or development-branch field comes back.
+
+### Fixed
+
+- `ConfidentialOutstandingAmount` renders in base 10 like the other MPToken
+  amounts, not as a 16 digit hex string.
+- `Definitions#get_field_instance` returns `nil` for an unknown field name.
+  Serialising a hash with a foreign key now fails with "Field x is not
+  defined" instead of a `NoMethodError` on `nil`.
+
 ## [0.7.0] - 2026-08-26
 
 The binary codec now passes the full ripple-binary-codec reference fixture set
