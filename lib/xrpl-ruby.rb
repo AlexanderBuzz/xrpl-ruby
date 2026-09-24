@@ -40,6 +40,8 @@ require_relative 'key-pairs/ed25519'
 require_relative 'key-pairs/secp256k1'
 require_relative 'key-pairs/key_pairs'
 
+require_relative 'xrpl/model'
 require_relative 'xrpl/transaction'
+require_relative 'xrpl/ledger_entry'
 require_relative 'xrpl/client'
 require_relative 'xrpl/faucet'
