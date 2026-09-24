@@ -102,6 +102,51 @@ describe Wallet::Wallet do
     end
   end
 
+  # The vector is xrpl.js's (test/utils/signPaymentChannelClaim): channel,
+  # 0.00001 XRP = 10 drops, secp256k1 key. ECDSA here is deterministic
+  # (RFC 6979), so the signature has to match byte for byte.
+  describe 'payment channel claims' do
+    let(:channel) { '3E18C05AD40319B809520F1A136370C4075321B285217323396D6FD9EE1E9037' }
+    let(:public_key) { '02F89EAEC7667B30F33D0687BBA86C3FE2A08CCA40A9186C5BDE2DAA6FA97A37D8' }
+    let(:private_key) { 'ACCD3309DB14D1A4FC9B1DAE608031F4408C85C73EE05E035B7DC8B25840107A' }
+    let(:wallet) { Wallet::Wallet.new(public_key, private_key) }
+    let(:reference_signature) do
+      '3045022100B5C54654221F154347679B97AE7791CBEF5E6772A3F894F9C781B8F1B400F89F' \
+        '022021E466D29DC5AEB5DFAFC76E8A88D2E388EBD25A84143B6AC3B647F479CB89B7'
+    end
+
+    it 'signs a claim the way xrpl.js does' do
+      expect(wallet.sign_payment_channel_claim(channel, '10')).to eq(reference_signature)
+      expect(wallet.sign_payment_channel_claim(channel, 10)).to eq(reference_signature)
+    end
+
+    it 'verifies a claim against its own key' do
+      expect(wallet.verify_payment_channel_claim(channel, '10', reference_signature)).to be true
+    end
+
+    it 'verifies a claim against any public key' do
+      expect(Wallet::Wallet.verify_payment_channel_claim(channel, '10', reference_signature, public_key))
+        .to be true
+      expect(Wallet::Wallet.verify_payment_channel_claim(
+               channel, '10', reference_signature,
+               '03A6523FE4281DA48A6FD77FAF3CB77F5C7001ABA0B32BCEDE0369AC009758D7D9'
+             )).to be false
+    end
+
+    it 'rejects a claim for a different amount or channel' do
+      expect(wallet.verify_payment_channel_claim(channel, '11', reference_signature)).to be false
+      expect(wallet.verify_payment_channel_claim('00' * 32, '10', reference_signature)).to be false
+    end
+
+    it 'works with an ed25519 wallet' do
+      ed = Wallet::Wallet.generate('ed25519')
+      signature = ed.sign_payment_channel_claim(channel, '1000000')
+
+      expect(ed.verify_payment_channel_claim(channel, '1000000', signature)).to be true
+      expect(ed.verify_payment_channel_claim(channel, '1000001', signature)).to be false
+    end
+  end
+
   describe '#verify_transaction' do
     let(:kp) { KeyPairs::KeyPairs.new }
     let(:real_ed_seed) { kp.generate_seed([0]*16, 'ed25519') }

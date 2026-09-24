@@ -8,6 +8,26 @@ module BinaryCodec
 
     @@instance = nil
 
+    # The permissions a DelegateSet can grant that are narrower than a whole
+    # transaction type. rippled numbers them from 65537 upwards, above the
+    # range the transaction types occupy. The table is not part of
+    # definitions.json - xrpl.js carries it in code as well
+    # (XrplDefinitionsBase#granularPermissions) - so it lives here.
+    GRANULAR_PERMISSIONS = {
+      'TrustlineAuthorize' => 65_537,
+      'TrustlineFreeze' => 65_538,
+      'TrustlineUnfreeze' => 65_539,
+      'AccountDomainSet' => 65_540,
+      'AccountEmailHashSet' => 65_541,
+      'AccountMessageKeySet' => 65_542,
+      'AccountTransferRateSet' => 65_543,
+      'AccountTickSizeSet' => 65_544,
+      'PaymentMint' => 65_545,
+      'PaymentBurn' => 65_546,
+      'MPTokenIssuanceLock' => 65_547,
+      'MPTokenIssuanceUnlock' => 65_548
+    }.freeze
+
      def initialize
       file_path = File.join(__dir__, 'definitions.json') #
       contents = File.read(file_path)
@@ -17,6 +37,15 @@ module BinaryCodec
       @ledger_entry_types = @definitions['LEDGER_ENTRY_TYPES']
       @transaction_results = @definitions['TRANSACTION_RESULTS']
       @transaction_types = @definitions['TRANSACTION_TYPES']
+
+      # PermissionValue names a delegatable permission. A whole transaction
+      # type is its type code plus one, so that Payment (type 0) is not
+      # confused with "no permission"; the granular permissions follow above.
+      @delegatable_permissions = @transaction_types
+                                 .reject { |_, code| code.negative? }
+                                 .transform_values { |code| code + 1 }
+                                 .merge(GRANULAR_PERMISSIONS)
+                                 .freeze
 
       @field_info_map = {}
       @field_id_name_map = {}
@@ -55,6 +84,11 @@ module BinaryCodec
     attr_reader :definitions
     alias raw definitions
 
+    # Name -> code tables, for the types that render as names in JSON.
+    # @return [Hash{String => Integer}]
+    attr_reader :transaction_types, :ledger_entry_types, :transaction_results,
+                :delegatable_permissions
+
     # Returns the singleton instance of the Definitions class.
     # @return [Definitions] The singleton instance.
     def self.instance
@@ -77,9 +111,12 @@ module BinaryCodec
 
     # Returns a FieldInstance for a given field name.
     # @param field_name [String] The name of the field.
-    # @return [FieldInstance] The field instance.
+    # @return [FieldInstance, nil] The field instance, nil for a name the
+    #   definitions do not know
     def get_field_instance(field_name)
        field_info = @field_info_map[field_name]
+       return nil if field_info.nil?
+
        field_header = get_field_header_from_name(field_name)
 
        FieldInstance.new(

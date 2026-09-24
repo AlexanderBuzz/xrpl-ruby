@@ -354,6 +354,67 @@ describe XRPL::Client do
 
         expect(client.autofill(base_tx)['Fee']).to eq(described_class::DEFAULT_FEE_DROPS.to_s)
       end
+
+      # The per-type rules themselves are covered in fee_spec; these check
+      # that autofill wires them to the ledger.
+      describe 'the fee by transaction type' do
+        before do
+          allow(client).to receive(:account_info_response)
+            .and_return('result' => { 'account_data' => { 'Sequence' => 42 } })
+          allow(client).to receive(:request_with_retry).with('fee')
+            .and_return('result' => { 'drops' => { 'open_ledger_fee' => '10' } })
+          allow(client).to receive(:request_with_retry).with('ledger_current')
+            .and_return('result' => { 'ledger_current_index' => 100 })
+        end
+
+        it 'scales for multisigning' do
+          expect(client.autofill(base_tx, signers_count: 2)['Fee']).to eq('30')
+        end
+
+        it 'charges an EscrowFinish for its Fulfillment' do
+          tx = { 'TransactionType' => 'EscrowFinish', 'Account' => 'rSource', 'Fulfillment' => 'A0' * 32 }
+
+          expect(client.autofill(tx)['Fee']).to eq('350')
+        end
+
+        it 'charges an AccountDelete the owner reserve from server_state' do
+          allow(client).to receive(:request_with_retry).with('server_state')
+            .and_return('result' => { 'state' => { 'validated_ledger' => { 'reserve_inc' => 200_000 } } })
+
+          tx = { 'TransactionType' => 'AccountDelete', 'Account' => 'rSource', 'Destination' => 'rDest' }
+
+          expect(client.autofill(tx)['Fee']).to eq('200000')
+        end
+
+        it 'does not ask for the reserve when the type does not need it' do
+          expect(client).not_to receive(:request_with_retry).with('server_state')
+
+          client.autofill(base_tx)
+        end
+
+        it 'raises rather than guess the reserve' do
+          allow(client).to receive(:request_with_retry).with('server_state')
+            .and_return('result' => { 'state' => {} })
+
+          tx = { 'TransactionType' => 'AccountDelete', 'Account' => 'rSource', 'Destination' => 'rDest' }
+
+          expect { client.autofill(tx) }.to raise_error(XRPL::TransactionError, /owner reserve/)
+        end
+
+        it 'caps the fee at max_fee_drops' do
+          allow(client).to receive(:request_with_retry).with('fee')
+            .and_return('result' => { 'drops' => { 'open_ledger_fee' => '5000' } })
+          capped = described_class.new('wss://example.com', max_fee_drops: 100)
+          allow(capped).to receive(:account_info_response)
+            .and_return('result' => { 'account_data' => { 'Sequence' => 42 } })
+          allow(capped).to receive(:request_with_retry).with('fee')
+            .and_return('result' => { 'drops' => { 'open_ledger_fee' => '5000' } })
+          allow(capped).to receive(:request_with_retry).with('ledger_current')
+            .and_return('result' => { 'ledger_current_index' => 100 })
+
+          expect(capped.autofill(base_tx)['Fee']).to eq('100')
+        end
+      end
     end
 
     describe '#submit' do

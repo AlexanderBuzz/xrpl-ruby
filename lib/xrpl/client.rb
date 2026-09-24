@@ -52,13 +52,18 @@ module XRPL
     # @param logger [Logger, nil] optional logger for diagnostic messages. When nil
     #   (the default), the client stays silent — a library must not write to the
     #   host application's stdout uninvited. Pass e.g. +Logger.new($stdout)+ to opt in.
-    def initialize(url, logger: nil)
+    # @param max_fee_drops [Integer] cap for the fee autofill computes, so a
+    #   spike in the open ledger fee cannot burn an account. Transactions that
+    #   cost an owner reserve (AccountDelete, AMMCreate, VaultCreate) are not
+    #   capped.
+    def initialize(url, logger: nil, max_fee_drops: Fee::MAX_FEE_DROPS)
       @url = resolve_url(url)
       @connection = nil
       @requests = {}
       @open = false
       @ready_queue = Queue.new
       @logger = logger
+      @max_fee_drops = max_fee_drops
     end
 
     # Opens the WebSocket connection.
@@ -319,13 +324,17 @@ module XRPL
     # Fills in the fields a transaction needs before signing: +Sequence+, +Fee+
     # and +LastLedgerSequence+. Existing values are never overwritten.
     #
+    # The fee follows the transaction type (see XRPL::Fee): an EscrowFinish
+    # pays for its Fulfillment, AccountDelete, AMMCreate and VaultCreate cost
+    # the owner reserve, a Batch pays for its inner transactions.
+    #
     # @param transaction [Hash, XRPL::Transaction] the transaction to complete.
     # @param signers_count [Integer] number of signatures for multisign fee scaling.
     # @return [Hash] a copy of the transaction with the missing fields filled in.
     def autofill(transaction, signers_count: 0)
       tx = self.class.to_transaction_hash(transaction).dup
       tx['Sequence'] ||= fetch_sequence(tx.fetch('Account'))
-      tx['Fee'] ||= calculate_fee(signers_count)
+      tx['Fee'] ||= calculate_fee(tx, signers_count)
       tx['LastLedgerSequence'] ||= current_ledger_index + LEDGER_OFFSET
       tx
     end
@@ -440,10 +449,14 @@ module XRPL
       Integer(sequence)
     end
 
-    def calculate_fee(signers_count)
-      base = base_fee_drops
-      total = signers_count.to_i.positive? ? base * (1 + signers_count.to_i) : base
-      total.to_s
+    def calculate_fee(tx, signers_count)
+      Fee.calculate(
+        tx,
+        base_fee: base_fee_drops,
+        signers_count: signers_count.to_i,
+        max_fee: @max_fee_drops,
+        owner_reserve: -> { owner_reserve_drops }
+      ).to_s
     end
 
     def base_fee_drops
@@ -453,6 +466,17 @@ module XRPL
       drops ? Integer(drops) : DEFAULT_FEE_DROPS
     rescue StandardError
       DEFAULT_FEE_DROPS
+    end
+
+    # The owner reserve (reserve_inc), which AccountDelete, AMMCreate and
+    # VaultCreate cost instead of a fee. There is no sensible default: a
+    # guess would be rejected or overpay by orders of magnitude.
+    def owner_reserve_drops
+      response = request_with_retry('server_state')
+      reserve = response.dig('result', 'state', 'validated_ledger', 'reserve_inc')
+      raise TransactionError, 'Could not determine the owner reserve from server_state' unless reserve
+
+      Integer(reserve)
     end
 
     def current_ledger_index

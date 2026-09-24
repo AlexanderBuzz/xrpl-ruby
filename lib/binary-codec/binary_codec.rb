@@ -6,7 +6,15 @@ module BinaryCodec
     transaction_sig: 0x53545800, # 'STX\0'
     transaction_multi_sig: 0x534D5400, # 'SMT\0'
     validation: 0x56414C00, # 'VAL\0'
-    proposal: 0x50525000 # 'PRP\0'
+    proposal: 0x50525000, # 'PRP\0'
+    payment_channel_claim: 0x434C4D00, # 'CLM\0'
+    batch: 0x42434800, # 'BCH\0'
+    # Role-specific prefixes from fixCleanup3_4_0, so a signature made for
+    # one role cannot be replayed as another.
+    counterparty_sig: 0x43505400, # 'CPT\0'
+    counterparty_multi_sig: 0x43504D00, # 'CPM\0'
+    sponsor_sig: 0x53504E00, # 'SPN\0'
+    sponsor_multi_sig: 0x53504D00 # 'SPM\0'
   }.freeze
 
   # from here: https://github.com/XRPLF/xrpl.js/blob/main/packages/ripple-binary-codec/src/binary.ts
@@ -36,6 +44,19 @@ module BinaryCodec
     def json_to_binary(json)
       st_object = SerializedType.get_type_by_name('STObject')
       st_object.from(json).to_hex
+    end
+
+    # The bytes a payment channel claim is signed over: the 'CLM\0' prefix,
+    # the channel ID and the amount in drops. Same as xrpl.js
+    # encodeForSigningClaim.
+    #
+    # @param channel [String] the channel ID, 64 hex characters
+    # @param amount [String, Integer] the amount in drops
+    # @return [Array<Integer>] the signing data
+    def signing_claim_data(channel:, amount:)
+      int_to_bytes(HASH_PREFIX[:payment_channel_claim], 4) +
+        Hash256.from(channel).to_bytes +
+        Uint64.from(Integer(amount)).to_bytes
     end
 
     # Generates signing data for a transaction.

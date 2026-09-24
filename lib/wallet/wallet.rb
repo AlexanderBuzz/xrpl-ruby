@@ -162,6 +162,38 @@ module Wallet
       @key_pairs.verify(bytes_to_hex(signing_data), signature, @public_key)
     end
 
+    # Signs a payment channel claim: the promise that +amount+ drops of the
+    # channel's funds may be claimed. The signature goes into a
+    # PaymentChannelClaim transaction as its Signature.
+    #
+    # @param channel [String] the channel ID, 64 hex characters
+    # @param amount [String, Integer] the amount in drops
+    # @return [String] the signature as hex
+    def sign_payment_channel_claim(channel, amount)
+      data = BinaryCodec.signing_claim_data(channel: channel, amount: amount)
+      @key_pairs.sign(bytes_to_hex(data), @private_key, @algorithm)
+    end
+
+    # Verifies a payment channel claim against this wallet's public key.
+    #
+    # @param channel [String] the channel ID, 64 hex characters
+    # @param amount [String, Integer] the amount in drops
+    # @param signature [String] the signature as hex
+    # @return [Boolean] whether the claim was signed by this wallet
+    def verify_payment_channel_claim(channel, amount, signature)
+      self.class.verify_payment_channel_claim(channel, amount, signature, @public_key)
+    end
+
+    # Verifies a payment channel claim against any public key - the channel's
+    # PublicKey, as the receiving side has it.
+    #
+    # @param public_key [String] the public key as hex
+    # @return [Boolean] whether the claim was signed with that key
+    def self.verify_payment_channel_claim(channel, amount, signature, public_key)
+      data = BinaryCodec.signing_claim_data(channel: channel, amount: amount)
+      KeyPairs::KeyPairs.new.verify(bytes_to_hex(data), signature, public_key)
+    end
+
     # Derives the X-address for this wallet.
     # @param tag [Integer, false, nil] The destination tag.
     # @param test_network [Boolean] Whether the address is for a test network.

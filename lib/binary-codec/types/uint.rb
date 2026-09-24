@@ -10,6 +10,7 @@ module BinaryCodec
       OutstandingAmount
       MPTAmount
       LockedAmount
+      ConfidentialOutstandingAmount
     ].freeze
 
     # Returns the width of the Uint type in bytes.
@@ -29,22 +30,14 @@ module BinaryCodec
       return value if value.is_a?(self)
 
       if value.is_a?(String)
-        # Special handling for TransactionType and LedgerEntryType
-        if self == Uint16
-          transaction_types = Definitions.instance.instance_variable_get(:@transaction_types)
-          if transaction_types&.key?(value)
-            return new(int_to_bytes(transaction_types[value], width))
-          end
-          ledger_entry_types = Definitions.instance.instance_variable_get(:@ledger_entry_types)
-          if ledger_entry_types&.key?(value)
-            return new(int_to_bytes(ledger_entry_types[value], width))
-          end
-        elsif self == Uint8
-          transaction_results = Definitions.instance.instance_variable_get(:@transaction_results)
-          if transaction_results&.key?(value)
-            return new(int_to_bytes(transaction_results[value], width))
-          end
-        end
+        # Names for the fields that carry one: TransactionType and
+        # LedgerEntryType (UInt16), TransactionResult (UInt8) and the
+        # PermissionValue of a DelegateSet (UInt32). A name is never a valid
+        # number, so the lookup cannot capture a numeric string.
+        code = NAMED_VALUES.fetch(self, [])
+                           .filter_map { |table| Definitions.instance.public_send(table)[value] }
+                           .first
+        return new(int_to_bytes(code, width)) if code
 
         # Handle hex strings or numeric strings
         if valid_hex?(value) && value.length == self.width * 2
@@ -77,29 +70,12 @@ module BinaryCodec
     # Returns the JSON representation of the Uint.
     # @return [Integer, String] The value.
     def to_json(_definitions = nil, _field_name = nil)
-      # Special handling for TransactionType, LedgerEntryType, and TransactionResult
-      # ONLY when requested via a field name that matches.
-      if _field_name == 'TransactionType'
-        val = value_of
-        transaction_types = Definitions.instance.instance_variable_get(:@transaction_types)
-        if transaction_types
-          name = transaction_types.key(val)
-          return name if name
-        end
-      elsif _field_name == 'LedgerEntryType'
-        val = value_of
-        ledger_entry_types = Definitions.instance.instance_variable_get(:@ledger_entry_types)
-        if ledger_entry_types
-          name = ledger_entry_types.key(val)
-          return name if name
-        end
-      elsif _field_name == 'TransactionResult'
-        val = value_of
-        transaction_results = Definitions.instance.instance_variable_get(:@transaction_results)
-        if transaction_results
-          name = transaction_results.key(val)
-          return name if name
-        end
+      # The fields that carry a name render it, the way rippled does. A code
+      # without a name falls through and renders as the number.
+      table = NAMED_FIELDS[_field_name]
+      if table
+        name = Definitions.instance.public_send(table).key(value_of)
+        return name if name
       end
 
       # rippled renders the narrow unsigned integers as JSON numbers and UInt64
@@ -229,6 +205,23 @@ module BinaryCodec
       end
       super(value)
     end
+  end
+
+  class Uint
+    # Which name tables a width accepts on the way in ...
+    NAMED_VALUES = {
+      Uint16 => %i[transaction_types ledger_entry_types],
+      Uint8 => %i[transaction_results],
+      Uint32 => %i[delegatable_permissions]
+    }.freeze
+
+    # ... and which field renders its value by name on the way out.
+    NAMED_FIELDS = {
+      'TransactionType' => :transaction_types,
+      'LedgerEntryType' => :ledger_entry_types,
+      'TransactionResult' => :transaction_results,
+      'PermissionValue' => :delegatable_permissions
+    }.freeze
   end
 
 end

@@ -15,10 +15,14 @@ require 'json'
 # in August 2026 were almost entirely in the second half - `accountState`
 # encoded 261/261 while decoding 0/261.
 #
-# All 287 cases pass in both directions. Should a change break one, fix the
-# cause rather than narrowing this spec; if a case has to be parked, mark it
+# All 302 cases (ripple-binary-codec 2.11.0: 39 transactions, 263 ledger
+# entries) pass in both directions. Should a change break one, fix the cause
+# rather than narrowing this spec; if a case has to be parked, mark it
 # `pending` with a reason rather than skipping or deleting it, so that RSpec
 # fails once it starts passing again.
+#
+# The file's third group, `ledgerData`, is a ledger header. xrpl.js encodes it
+# through a separate `encodeLedgerData`, which this codec does not have yet.
 RSpec.describe 'ripple-binary-codec fixtures' do
   FIXTURES = JSON.parse(
     File.read(File.expand_path('../fixtures/codec-fixtures.json', __dir__))

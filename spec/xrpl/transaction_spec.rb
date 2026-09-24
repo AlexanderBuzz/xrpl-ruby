@@ -203,4 +203,64 @@ RSpec.describe XRPL::Transaction do
         .to raise_error(described_class::ValidationError, /no TransactionType/)
     end
   end
+
+  # Every reference fixture is a real transaction; each must survive a trip
+  # through its model unchanged.
+  describe 'round trip through the reference fixtures' do
+    fixtures = JSON.parse(
+      File.read(File.expand_path('../binary-codec/fixtures/codec-fixtures.json', __dir__))
+    ).fetch('transactions')
+
+    fixtures.each_with_index do |entry, index|
+      json = entry['json']
+
+      it "reproduces ##{index} #{json['TransactionType']}" do
+        model = described_class.from(json)
+
+        expect(model).to be_a(described_class.for(json['TransactionType']))
+        expect(model.to_h).to eq(json)
+      end
+    end
+  end
+
+  describe 'flags' do
+    let(:tx) do
+      XRPL::Transaction::Payment.new(
+        account: 'rBKPS4oLSaV2KVVuHH8EpQqMGgGefGFQs7',
+        flags: XRPL::Transaction::Payment::TF_PARTIAL_PAYMENT
+      )
+    end
+
+    it 'answers which flags are set, by any of their names' do
+      expect(tx.flag?('tfPartialPayment')).to be true
+      expect(tx.flag?(:tf_partial_payment)).to be true
+      expect(tx.flag?(:tf_no_ripple_direct)).to be false
+      expect(tx.flag_names).to eq(['tfPartialPayment'])
+    end
+
+    it 'treats a transaction without Flags as having none set' do
+      expect(XRPL::Transaction::Payment.new.flag?(:tf_partial_payment)).to be false
+    end
+  end
+
+  it 'rejects a hash whose type contradicts the class' do
+    expect { XRPL::Transaction::Payment.new('TransactionType' => 'TrustSet') }
+      .to raise_error(described_class::ValidationError, /Payment cannot carry TransactionType TrustSet/)
+  end
+
+  # The models follow definitions.json, so a sync reaches them without any
+  # code change. rippled 3.4.0 (LendingProtocolV1_1) is the first such sync.
+  describe 'rippled 3.4.0 formats' do
+    it 'gives VaultCreate the closed-ended vault fields' do
+      tx = XRPL::Transaction::VaultCreate.new(
+        account: 'rBKPS4oLSaV2KVVuHH8EpQqMGgGefGFQs7',
+        vault_kind: 1,
+        subscription_date: 800_000_000,
+        redemption_date: 810_000_000
+      )
+
+      expect(tx.to_h).to include('VaultKind' => 1, 'SubscriptionDate' => 800_000_000,
+                                 'RedemptionDate' => 810_000_000)
+    end
+  end
 end
