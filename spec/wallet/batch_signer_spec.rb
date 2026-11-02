@@ -101,10 +101,10 @@ RSpec.describe 'Batch signing' do
         .to raise_error(ArgumentError, /needs a RawTransaction/)
     end
 
-    # What is signed has to agree with what is serialised: the codec encodes
-    # the String "000000D7" as 215, so the payload carries 215 too.
+    # What is signed has to agree with what is serialised: the codec reads
+    # the String "215" as 215, as rippled does, so the payload carries 215.
     it 'puts the sequence value into the payload as the codec encodes it' do
-      as_string = sequenced.merge('Sequence' => '000000D7')
+      as_string = sequenced.merge('Sequence' => '215')
 
       expect(BinaryCodec.batch_sequence_value(as_string)).to eq(215)
       expect(BinaryCodec.signing_batch_data(as_string, batch_account: secp))

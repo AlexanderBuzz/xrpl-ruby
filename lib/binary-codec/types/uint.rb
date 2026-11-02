@@ -24,9 +24,19 @@ module BinaryCodec
     end
 
     # Creates a new Uint instance from a value.
+    #
+    # A String is read the way rippled 3.4.1 reads it (STParsedJSON):
+    # UInt8, UInt16 and UInt32 as a whole decimal number; UInt64 as hex of
+    # any length, except in the base-10 fields (BASE10_UINT64_FIELDS),
+    # which are decimal. The fields that carry a name also take the name.
+    # ripple-binary-codec reads them the same way. Anything else, and any
+    # value outside the type's range, raises ArgumentError.
+    #
     # @param value [Uint, String, Integer] The value to convert.
+    # @param field_name [String, nil] the field, which decides how a UInt64
+    #   String is read; without it, as hex
     # @return [Uint] The created instance.
-    def self.from(value)
+    def self.from(value, field_name = nil)
       return value if value.is_a?(self)
 
       if value.is_a?(String)
@@ -39,22 +49,36 @@ module BinaryCodec
                            .first
         return new(int_to_bytes(code, width)) if code
 
-        # Hex in the field's full width, as this codec has always rendered
-        # it, or a whole decimal number, as rippled reads a UInt string
-        # (beast::lexicalCastThrow in STParsedJSON). Anything else used to
-        # go through #to_i, which made "101junk" 101 and "abc" 0.
-        return new(hex_to_bytes(value)) if valid_hex?(value) && value.length == width * 2
-        unless value.match?(/\A\d+\z/)
-          raise ArgumentError, "#{name} needs a whole decimal number or #{width * 2} hex digits, got #{value.inspect}"
-        end
-
-        return new(int_to_bytes(in_range!(Integer(value, 10)), width))
+        return new(int_to_bytes(in_range!(parse_string(value, field_name)), width))
       end
 
       return new(int_to_bytes(in_range!(value), width)) if value.is_a?(Integer)
 
       raise StandardError, "Cannot construct #{self} from the value given"
     end
+
+    # How a String becomes a number for this width. UInt8/16/32: decimal.
+    # UInt64: hex, or decimal in a base-10 field. The wider types keep the
+    # codec's earlier reading: hex in their full width, otherwise decimal.
+    def self.parse_string(value, field_name)
+      if width == 8
+        if BASE10_UINT64_FIELDS.include?(field_name)
+          return Integer(value, 10) if value.match?(/\A\d+\z/)
+
+          raise ArgumentError, "#{field_name} is base 10 and needs a whole decimal number, got #{value.inspect}"
+        end
+        return Integer(value, 16) if value.match?(/\A\h{1,16}\z/)
+
+        raise ArgumentError, "#{name} needs up to 16 hex digits, got #{value.inspect}"
+      elsif width > 8 && valid_hex?(value) && value.length == width * 2
+        Integer(value, 16)
+      elsif value.match?(/\A\d+\z/)
+        Integer(value, 10)
+      else
+        raise ArgumentError, "#{name} needs a whole decimal number, got #{value.inspect}"
+      end
+    end
+    private_class_method :parse_string
 
     # A value that does not fit the width used to come out a byte too long
     # (2**32 as a UInt32) or, if negative, as 0.
@@ -180,8 +204,10 @@ module BinaryCodec
     # Creates a new Int32 instance from a value.
     # @param value [Int32, Integer] The value to convert.
     # @return [Int32] The created instance.
-    def self.from(value)
+    def self.from(value, _field_name = nil)
       return value if value.is_a?(self)
+      # rippled reads an Int32 String as a signed decimal number.
+      value = Integer(value, 10) if value.is_a?(String) && value.match?(/\A-?\d+\z/)
       if value.is_a?(Integer)
         # Ensure it fits in 32-bit signed
         if value < -2147483648 || value > 2147483647
@@ -207,8 +233,10 @@ module BinaryCodec
     # Creates a new Int64 instance from a value.
     # @param value [Int64, Integer] The value to convert.
     # @return [Int64] The created instance.
-    def self.from(value)
+    def self.from(value, _field_name = nil)
       return value if value.is_a?(self)
+      # rippled reads an Int64 String as a signed decimal number.
+      value = Integer(value, 10) if value.is_a?(String) && value.match?(/\A-?\d+\z/)
       if value.is_a?(Integer)
         if value < -9223372036854775808 || value > 9223372036854775807
           raise StandardError, "Value #{value} out of range for Int64"
