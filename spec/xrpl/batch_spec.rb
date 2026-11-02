@@ -175,6 +175,15 @@ RSpec.describe XRPL::Batch do
           .to raise_error(ArgumentError, /whole decimal number/)
       end
 
+      it 'refuses a malformed or out-of-range sequence before it asks for one' do
+        expect { prepare(batch(payment(other), payment(outer, 'Sequence' => '101junk'))) }
+          .to raise_error(ArgumentError, /whole decimal number/)
+        expect { prepare(batch(payment(other), payment(outer, 'TicketSequence' => 2**32))) }
+          .to raise_error(ArgumentError, /0 to 4294967295/)
+        expect { prepare(batch(payment(other), payment(outer), Sequence: -1)) }.to raise_error(ArgumentError)
+        expect(fetched).to be_empty
+      end
+
       # rippled: temSEQ_AND_TICKET. Without the check the nonzero Sequence
       # was kept and pushed the account's next inner sequence up.
       it 'refuses a nonzero Sequence next to a TicketSequence, inner or outer' do

@@ -123,7 +123,11 @@ module XRPL
     # a TicketSequence (temSEQ_AND_TICKET). Refused before any sequence is
     # handed out, so it cannot push the account's later sequences up.
     def check_sequence_and_ticket!(transaction, label)
-      return if transaction['TicketSequence'].nil? || BinaryCodec.uint32_value(transaction['Sequence']).zero?
+      # Reading both values here refuses a malformed or out-of-range one in
+      # the checking pass, not after sequences were already fetched.
+      sequence = BinaryCodec.uint32_value(transaction['Sequence'])
+      BinaryCodec.uint32_value(transaction['TicketSequence'])
+      return if transaction['TicketSequence'].nil? || sequence.zero?
 
       raise ArgumentError, "#{label} has both a Sequence and a TicketSequence; " \
                            'on a ticket, Sequence is 0 (temSEQ_AND_TICKET)'
