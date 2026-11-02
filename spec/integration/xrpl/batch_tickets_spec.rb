@@ -30,15 +30,6 @@ RSpec.describe 'XRPL Batch sequences around tickets', :integration, :network do
                             'Destination' => to.classic_address, 'Amount' => drops.to_s }.merge(extra) }
   end
 
-  # SHA512Half of 'TXN\0' and the inner transaction. Once #4 is in, this is
-  # BinaryCodec.inner_transaction_ids.
-  def inner_ids(batch)
-    batch['RawTransactions'].map do |wrapper|
-      blob = BinaryCodec.json_to_binary(wrapper['RawTransaction'])
-      Digest::SHA512.digest("TXN\0#{[blob].pack('H*')}")[0, 32].unpack1('H*').upcase
-    end
-  end
-
   # Signs and submits the Batch, then checks the outer result and every
   # inner one. An applied inner transaction is a transaction of its own,
   # whose metadata names its Batch in ParentBatchID (XLS-56).
@@ -47,7 +38,7 @@ RSpec.describe 'XRPL Batch sequences around tickets', :integration, :network do
     result = client.submit_and_wait(batch, wallet: wallet, autofill: false)
     expect(result.dig('result', 'meta', 'TransactionResult')).to eq('tesSUCCESS')
 
-    inner_ids(batch).each do |id|
+    BinaryCodec.inner_transaction_ids(batch).each do |id|
       inner = client.tx_response(transaction: id)['result']
       expect(inner['validated']).to be(true), "inner transaction #{id} has to be validated"
       expect(inner.dig('meta', 'TransactionResult')).to eq('tesSUCCESS')
