@@ -60,9 +60,11 @@ RSpec.describe XRPL::Batch do
       expect(fetched).to eq([other])
     end
 
+    # On a ticket the outer Sequence is 0. This spec used to give it 100 as
+    # well, a combination rippled refuses (temSEQ_AND_TICKET).
     it 'asks the ledger for the outer account when the outer transaction uses a ticket' do
       sequences[outer] = 100
-      txs = inner(prepare(batch(payment(outer), payment(outer), TicketSequence: 7)))
+      txs = inner(prepare(batch(payment(outer), payment(outer), Sequence: 0, TicketSequence: 7)))
 
       expect(txs.map { |tx| tx['Sequence'] }).to eq([100, 101])
     end
@@ -147,6 +149,69 @@ RSpec.describe XRPL::Batch do
     end
 
     describe 'what the ledger would refuse' do
+      it 'checks every inner transaction before it asks for a sequence' do
+        late_conflict = payment(outer, 'Sequence' => 140, 'TicketSequence' => 7)
+        expect { prepare(batch(payment(other), late_conflict)) }.to raise_error(ArgumentError, /RawTransactions\[1\]/)
+        expect { prepare(batch(payment(other), { 'RawTransaction' => { 'TransactionType' => 'Payment' } })) }
+          .to raise_error(ArgumentError, /RawTransactions\[1\] has no Account/)
+        expect(fetched).to be_empty
+      end
+
+      # The codec reads an 8-character String as hex: "0000000A" is 10, where
+      # #to_i gives 0. The checks use the codec's reading, the one that is
+      # serialised and signed.
+      it 'reads a Sequence given as a String the way the codec encodes it' do
+        expect { prepare(batch(payment(outer, 'Sequence' => '0000000A', 'TicketSequence' => 7), payment(outer))) }
+          .to raise_error(ArgumentError, /has both a Sequence and a TicketSequence/)
+        expect { prepare(batch(payment(outer), payment(outer), Sequence: '0000000A', TicketSequence: 9)) }
+          .to raise_error(ArgumentError, /The Batch has both/)
+
+        txs = inner(prepare(batch(payment(outer, 'Sequence' => '00000065'), payment(outer))))
+        expect(txs.map { |tx| tx['Sequence'] }).to eq(['00000065', 102])
+      end
+
+      it 'refuses a malformed Sequence String instead of reading its leading digits' do
+        expect { prepare(batch(payment(outer, 'Sequence' => '101junk'), payment(outer))) }
+          .to raise_error(ArgumentError, /needs a number|whole decimal number/)
+      end
+
+      # A UInt32 takes permission names, meant for PermissionValue:
+      # "TrustSet" would be ticket 21.
+      it 'refuses a name as a Sequence or TicketSequence' do
+        expect { prepare(batch(payment(other), payment(outer, 'TicketSequence' => 'TrustSet'))) }
+          .to raise_error(ArgumentError, /needs a number/)
+        expect { prepare(batch(payment(outer, 'Sequence' => 'Payment'), payment(outer))) }
+          .to raise_error(ArgumentError, /needs a number/)
+        expect(fetched).to be_empty
+      end
+
+      it 'refuses a malformed or out-of-range sequence before it asks for one' do
+        expect { prepare(batch(payment(other), payment(outer, 'Sequence' => '101junk'))) }
+          .to raise_error(ArgumentError, /needs a number|whole decimal number/)
+        expect { prepare(batch(payment(other), payment(outer, 'TicketSequence' => 2**32))) }
+          .to raise_error(ArgumentError, /0 to 4294967295/)
+        expect { prepare(batch(payment(other), payment(outer), Sequence: -1)) }.to raise_error(ArgumentError)
+        expect(fetched).to be_empty
+      end
+
+      # rippled: temSEQ_AND_TICKET. Without the check the nonzero Sequence
+      # was kept and pushed the account's next inner sequence up.
+      it 'refuses a nonzero Sequence next to a TicketSequence, inner or outer' do
+        expect { prepare(batch(payment(outer, 'Sequence' => 140, 'TicketSequence' => 7), payment(outer))) }
+          .to raise_error(ArgumentError, /RawTransactions\[0\] has both a Sequence and a TicketSequence/)
+        expect { prepare(batch(payment(outer), payment(outer), TicketSequence: 9)) }
+          .to raise_error(ArgumentError, /The Batch has both a Sequence and a TicketSequence/)
+        expect(fetched).to be_empty
+      end
+
+      it 'accepts Sequence 0 next to a TicketSequence' do
+        sequences[outer] = 100
+        txs = inner(prepare(batch(payment(outer, 'Sequence' => 0, 'TicketSequence' => 7), payment(outer),
+                                  Sequence: 0, TicketSequence: 9)))
+
+        expect(txs.map { |tx| tx.values_at('Sequence', 'TicketSequence') }).to eq([[0, 7], [100, nil]])
+      end
+
       it 'needs exactly one mode flag' do
         flags = described_class::FLAGS['Batch']
         expect { prepare(batch(payment(outer), payment(outer), flags: 0)) }

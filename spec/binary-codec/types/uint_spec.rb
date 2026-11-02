@@ -107,4 +107,35 @@ RSpec.describe BinaryCodec::Uint do
       expect(uint32_class.from('42').value_of).to eq(42)
     end
   end
+  # rippled reads a UInt string as a whole decimal number and refuses the
+  # rest (STParsedJSON, beast::lexicalCastThrow). The codec used to run every
+  # String through #to_i, and wrote integers that do not fit the width.
+  describe 'what it refuses' do
+    it 'accepts a whole decimal number, full-width hex and a name' do
+      expect(uint32_class.from('101').value_of).to eq(101)
+      expect(uint32_class.from('0000000A').value_of).to eq(10)
+      expect(uint16_class.from('Payment').value_of).to eq(0)
+      expect(uint64_class.from('00000000000036D6').value_of).to eq(0x36D6)
+    end
+
+    it 'refuses a String that is not a whole number' do
+      %w[101junk 12.5 -1 0x10 abc].each do |bad|
+        expect { uint32_class.from(bad) }.to raise_error(ArgumentError, /whole decimal number/), bad
+      end
+      # rippled reads this as hex; it used to become 36 here
+      expect { uint64_class.from('36d6') }.to raise_error(ArgumentError)
+    end
+
+    it 'refuses a number that does not fit the width' do
+      expect { uint32_class.from(2**32) }.to raise_error(ArgumentError, /0 to 4294967295/)
+      expect { uint32_class.from('4294967296') }.to raise_error(ArgumentError, /0 to 4294967295/)
+      expect { uint8_class.from(256) }.to raise_error(ArgumentError)
+      expect { uint32_class.from(-1) }.to raise_error(ArgumentError)
+      expect(uint32_class.from(2**32 - 1).to_hex).to eq('FFFFFFFF')
+    end
+
+    it 'refuses a malformed Sequence in a transaction' do
+      expect { BinaryCodec.json_to_binary('Sequence' => '101junk') }.to raise_error(ArgumentError)
+    end
+  end
 end

@@ -339,6 +339,18 @@ describe XRPL::Client do
         expect(tx['LastLedgerSequence']).to eq(120)
       end
 
+      # On a ticket Sequence is 0; the account's own sequence next to a
+      # TicketSequence is refused by rippled (temSEQ_AND_TICKET).
+      it 'gives a transaction on a ticket Sequence 0 and does not ask for the account sequence' do
+        expect(client).not_to receive(:account_info_response)
+        allow(client).to receive(:request_with_retry).with('fee')
+          .and_return('result' => { 'drops' => { 'open_ledger_fee' => '12' } })
+        allow(client).to receive(:request_with_retry).with('ledger_current')
+          .and_return('result' => { 'ledger_current_index' => 100 })
+
+        expect(client.autofill(base_tx.merge('TicketSequence' => 9))['Sequence']).to eq(0)
+      end
+
       it 'never overwrites values that are already present' do
         tx = client.autofill(base_tx.merge('Sequence' => 7, 'Fee' => '5', 'LastLedgerSequence' => 9))
 
@@ -444,6 +456,13 @@ describe XRPL::Client do
             .to eq([[43, '0', '', 0x40000000], [7, '0', '', 0x40000000]])
           # (2 + 1) × 10 for the Batch, 10 for each inner Payment
           expect(tx['Fee']).to eq('50')
+        end
+
+        it 'gives an outer transaction on a ticket Sequence 0 rather than the account sequence' do
+          tx = client.autofill(batch.merge('TicketSequence' => 9))
+
+          expect(tx['Sequence']).to eq(0)
+          expect(tx['RawTransactions'][0]['RawTransaction']['Sequence']).to eq(42)
         end
 
         it 'refuses a Batch the ledger would refuse, before asking for a fee' do

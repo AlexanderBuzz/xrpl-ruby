@@ -127,10 +127,29 @@ module BinaryCodec
     # @param batch [Hash]
     # @return [Integer]
     def batch_sequence_value(batch)
-      sequence = batch['Sequence'].to_i
+      sequence = uint32_value(batch['Sequence'])
       return sequence if sequence.positive?
 
-      batch['TicketSequence'].to_i
+      uint32_value(batch['TicketSequence'])
+    end
+
+    # A UInt32 field's value as the codec serialises it, so a check made on
+    # it agrees with the bytes that are signed. A String is not simply
+    # #to_i: the codec reads "0000000A" as 10, where #to_i gives 0.
+    #
+    # Only numbers: a UInt32 also takes a permission name ("TrustSet" is
+    # 21), which is meant for PermissionValue and would be a wrong ticket or
+    # sequence here.
+    #
+    # @param value [Integer, String, nil]
+    # @return [Integer] 0 for nil
+    def uint32_value(value)
+      return 0 if value.nil?
+      if value.is_a?(String) && !value.match?(/\A(\d+|\h{8})\z/)
+        raise ArgumentError, "A sequence needs a number, got #{value.inspect}"
+      end
+
+      Uint32.from(value).value_of
     end
 
     # Generates signing data for a transaction.

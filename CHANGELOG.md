@@ -59,6 +59,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A Sequence next to a TicketSequence is refused in a Batch.** On a ticket
+  `Sequence` is 0, and rippled refuses anything else (`temSEQ_AND_TICKET`).
+  `autofill` kept a nonzero one on an inner transaction and counted it, so
+  the account's later inner transactions got sequences that were too high.
+  It now raises `ArgumentError` before handing out any sequence, for the
+  outer transaction as well as the inner ones. Every inner transaction is
+  checked before the first sequence is fetched. A `Sequence` given as a
+  String is read the way the codec encodes it, also in the BatchSigner
+  payload: `"0000000A"` is 10, where `#to_i` gives 0.
+- **`autofill` gives a transaction on a ticket `Sequence` 0.** With a
+  `TicketSequence` and no `Sequence`, it fetched the account's sequence,
+  which rippled refuses next to a ticket. This affected every transaction
+  type, not only a Batch.
 - **Batch sequences around tickets.** Two cases of `autofill` were wrong
   for a Batch:
   - An inner transaction on a ticket got no `Sequence`. The field is
@@ -97,6 +110,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **UInt fields refuse malformed values.** A String is now either a whole
+  decimal number, as rippled reads it, or hex in the field's full width, as
+  this codec has always rendered it. Before, every other String went through
+  `#to_i`:
+  - `"101junk"` became 101, `"12.5"` became 12.
+  - `"abc"`, `"-1"` and `"0x10"` became 0.
+  - An unpadded UInt64 hex value such as `"36d6"` became 36.
+
+  A number outside the field's range also raises now. Before, `2**32` as a
+  UInt32 came out five bytes long, and a negative number became 0. Both
+  cases raise `ArgumentError`.
 - **`STObject.from_parser` raises on malformed input** instead of ending
   the object silently. The last `rescue => e; break` of the codec is gone;
   a truncated blob used to decode into a partial object.
