@@ -134,8 +134,9 @@ module BinaryCodec
     end
 
     # A UInt32 field's value as the codec serialises it, so a check made on
-    # it agrees with the bytes that are signed. A String is not simply
-    # #to_i: the codec reads "0000000A" as 10, where #to_i gives 0.
+    # it agrees with the bytes that are signed. A String is a decimal
+    # number, as rippled reads it, not #to_i: "101junk" raises rather than
+    # becoming 101.
     #
     # Only numbers: a UInt32 also takes a permission name ("TrustSet" is
     # 21), which is meant for PermissionValue and would be a wrong ticket or
@@ -145,7 +146,7 @@ module BinaryCodec
     # @return [Integer] 0 for nil
     def uint32_value(value)
       return 0 if value.nil?
-      if value.is_a?(String) && !value.match?(/\A\d+\z/)
+      if value.is_a?(String) && !value.match?(/\A\+?\d+\z/)
         raise ArgumentError, "A sequence needs a number, got #{value.inspect}"
       end
 
