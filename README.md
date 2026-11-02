@@ -210,6 +210,52 @@ end
 
 `examples/batch.rb` runs both flows against the Testnet.
 
+## Delegation
+
+An account can let another account send certain transactions on its behalf
+(XLS-75, enabled on Mainnet since 2026-10-08). A `DelegateSet` grants the
+permissions. A permission is either a transaction type, such as `"Payment"`,
+or one of the granular permissions, such as `"TrustlineAuthorize"` or
+`"PaymentMint"`. The codec translates both names.
+
+> **Do not delegate `"PaymentBurn"` until the `fixCleanup3_4_0` amendment is
+> enabled on the target network.** Before that fix, a delegate holding
+> `PaymentBurn` can in certain circumstances also mint fungible tokens
+> (trust line tokens or MPTs). The `feature` method of a node reports
+> whether it is enabled there; [Known Amendments](https://xrpl.org/resources/known-amendments)
+> has the Mainnet status. Source:
+> [Permission Values](https://xrpl.org/docs/references/protocol/data-types/permission-values).
+
+```ruby
+client.submit_and_wait({
+  'TransactionType' => 'DelegateSet',
+  'Account' => isaac.classic_address,
+  'Authorize' => alice.classic_address,
+  'Permissions' => [{ 'Permission' => { 'PermissionValue' => 'Payment' } }]
+}, wallet: isaac)
+```
+
+The delegate then sends the transaction with `Account` set to the delegating
+account and `Delegate` set to itself, and signs it with its own wallet:
+
+```ruby
+client.submit_and_wait({
+  'TransactionType' => 'Payment',
+  'Account' => isaac.classic_address,
+  'Delegate' => alice.classic_address,
+  'Destination' => bob.classic_address,
+  'Amount' => '1000000'
+}, wallet: alice)
+```
+
+- **Sequence:** `autofill` takes it from `Account`, as rippled expects.
+- **Signature and fee:** both belong to the delegate. Isaac pays the amount,
+  Alice pays the fee.
+- **Without the permission:** the transaction comes back as
+  `terNO_DELEGATE_PERMISSION`.
+- **Inside a Batch:** for a delegated inner transaction, the delegate signs
+  the `BatchSigners` entry (see above).
+
 ## Payment channel claims
 
 A claim is signed off-ledger and redeemed later with a `PaymentChannelClaim`

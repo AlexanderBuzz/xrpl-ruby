@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Permission delegation is verified on the Testnet** (XLS-75,
+  PermissionDelegationV1_1 enabled on Mainnet since 2026-10-08). The library
+  needed no change:
+  - `Wallet#sign` signs a transaction whose `Account` is another account.
+  - `autofill` takes the `Sequence` from `Account`.
+  - The codec translates `PermissionValue` names (since 0.8.0).
+
+  `spec/integration/xrpl/delegation_spec.rb` covers the whole flow:
+  - a `DelegateSet`,
+  - then a `Payment` with `Delegate`, signed by the delegate,
+  - checked against rippled 3.4.1: the account pays the amount and the
+    delegate pays the fee,
+  - and a delegate without the permission is refused with
+    `terNO_DELEGATE_PERMISSION`.
+
+  The README has a section on it, including the warning from xrpl.org not to
+  delegate `PaymentBurn` before `fixCleanup3_4_0` is enabled.
 - **Batch signing across accounts.** `Wallet#sign_batch` produces the
   `BatchSigners` entry for an account with inner transactions in the Batch:
   the wallet's own account, another account it is the regular key of
