@@ -178,6 +178,7 @@ RSpec.describe BinaryCodec::Uint do
       expect(BinaryCodec.uint32_value('+5')).to eq(5)
       expect { uint8_class.from('+5') }.to raise_error(ArgumentError)
       expect { uint16_class.from('+5') }.to raise_error(ArgumentError)
+      expect { BinaryCodec::Uint128.from('+5') }.to raise_error(ArgumentError)
       expect { uint64_class.from('+36d6') }.to raise_error(ArgumentError)
       expect { uint64_class.from('+100', 'MPTAmount') }.to raise_error(ArgumentError)
       expect { uint32_class.from('++5') }.to raise_error(ArgumentError)
