@@ -53,21 +53,22 @@ module XRPL
         [next_sequence[account] || first_sequence(batch, account, sequence_for), floor[account]].max
       end
 
-      prepared = raw.each_with_index.map do |wrapper, index|
-        inner = unwrap(wrapper, index)
-        check_inner!(inner, index)
+      # Everything is checked before the first sequence is handed out, so a
+      # Batch the ledger would refuse never reaches sequence_for.
+      inners = raw.each_with_index.map do |wrapper, index|
+        unwrap(wrapper, index).tap { |inner| check_inner!(inner, index) }
+      end
 
+      prepared = inners.map do |inner|
         inner['Flags'] = Integer(inner['Flags'] || 0) | TF_INNER_BATCH_TXN
         inner['Fee'] = '0'
         inner['SigningPubKey'] = ''
 
-        account = inner.fetch('Account') do
-          raise ArgumentError, "RawTransactions[#{index}] has no Account"
-        end
+        account = inner['Account']
         # A TicketCreate also takes a sequence for every ticket it creates.
         reserved = inner['TransactionType'] == 'TicketCreate' ? Integer(inner['TicketCount'] || 0) : 0
 
-        if !inner['TicketSequence'].nil? && inner['Sequence'].to_i.zero?
+        if !inner['TicketSequence'].nil? && BinaryCodec.uint32_value(inner['Sequence']).zero?
           # On a ticket: Sequence is a required field and 0 here. Only a
           # TicketCreate still moves the account's sequence on, by the
           # tickets it creates, starting at the current one.
@@ -78,7 +79,7 @@ module XRPL
           inner['Sequence'] = sequence
           next_sequence[account] = sequence + 1 + reserved
         else
-          floor[account] = [floor[account], Integer(inner['Sequence']) + 1 + reserved].max
+          floor[account] = [floor[account], BinaryCodec.uint32_value(inner['Sequence']) + 1 + reserved].max
         end
 
         { 'RawTransaction' => inner }
@@ -122,7 +123,7 @@ module XRPL
     # a TicketSequence (temSEQ_AND_TICKET). Refused before any sequence is
     # handed out, so it cannot push the account's later sequences up.
     def check_sequence_and_ticket!(transaction, label)
-      return if transaction['TicketSequence'].nil? || transaction['Sequence'].to_i.zero?
+      return if transaction['TicketSequence'].nil? || BinaryCodec.uint32_value(transaction['Sequence']).zero?
 
       raise ArgumentError, "#{label} has both a Sequence and a TicketSequence; " \
                            'on a ticket, Sequence is 0 (temSEQ_AND_TICKET)'
@@ -130,6 +131,8 @@ module XRPL
 
     def check_inner!(inner, index)
       prefix = "RawTransactions[#{index}]"
+      raise ArgumentError, "#{prefix} has no Account" if inner['Account'].nil?
+
       check_sequence_and_ticket!(inner, prefix)
       raise ArgumentError, "#{prefix} is a Batch; a Batch cannot nest" if inner['TransactionType'] == 'Batch'
       if inner.key?('TxnSignature') || inner.key?('Signers')
@@ -147,7 +150,7 @@ module XRPL
     # consumes its Sequence; when it uses a ticket instead, the account's
     # sequence is still free. Every other account starts at its own.
     def first_sequence(batch, account, sequence_for)
-      outer_sequence = batch['Sequence'].to_i
+      outer_sequence = BinaryCodec.uint32_value(batch['Sequence'])
       if account == batch['Account'] && outer_sequence.positive? && batch['TicketSequence'].nil?
         outer_sequence + 1
       else

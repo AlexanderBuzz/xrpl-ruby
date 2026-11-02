@@ -127,10 +127,20 @@ module BinaryCodec
     # @param batch [Hash]
     # @return [Integer]
     def batch_sequence_value(batch)
-      sequence = batch['Sequence'].to_i
+      sequence = uint32_value(batch['Sequence'])
       return sequence if sequence.positive?
 
-      batch['TicketSequence'].to_i
+      uint32_value(batch['TicketSequence'])
+    end
+
+    # A UInt32 field's value as the codec serialises it, so a check made on
+    # it agrees with the bytes that are signed. A String is not simply
+    # #to_i: the codec reads "0000000A" as 10, where #to_i gives 0.
+    #
+    # @param value [Integer, String, nil]
+    # @return [Integer] 0 for nil
+    def uint32_value(value)
+      value.nil? ? 0 : Uint32.from(value).value_of
     end
 
     # Generates signing data for a transaction.

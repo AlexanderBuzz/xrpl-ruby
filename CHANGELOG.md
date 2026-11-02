@@ -47,7 +47,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `autofill` kept a nonzero one on an inner transaction and counted it, so
   the account's later inner transactions got sequences that were too high.
   It now raises `ArgumentError` before handing out any sequence, for the
-  outer transaction as well as the inner ones.
+  outer transaction as well as the inner ones. Every inner transaction is
+  checked before the first sequence is fetched. A `Sequence` given as a
+  String is read the way the codec encodes it, also in the BatchSigner
+  payload: `"0000000A"` is 10, where `#to_i` gives 0.
+- **`autofill` gives a transaction on a ticket `Sequence` 0.** With a
+  `TicketSequence` and no `Sequence`, it fetched the account's sequence,
+  which rippled refuses next to a ticket. This affected every transaction
+  type, not only a Batch.
 - **Batch sequences around tickets.** Two cases of `autofill` were wrong
   for a Batch:
   - An inner transaction on a ticket got no `Sequence`. The field is

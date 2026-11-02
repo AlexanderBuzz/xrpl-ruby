@@ -343,6 +343,9 @@ module XRPL
     # @raise [ArgumentError] for a Batch the ledger would refuse.
     def autofill(transaction, signers_count: 0, batch_signatures: 0)
       tx = self.class.to_transaction_hash(transaction).dup
+      # On a ticket, Sequence is 0; the account's own would be refused
+      # (temSEQ_AND_TICKET).
+      tx['Sequence'] = 0 if tx['Sequence'].nil? && !tx['TicketSequence'].nil?
       tx['Sequence'] ||= fetch_sequence(tx.fetch('Account'))
       if tx['TransactionType'] == 'Batch'
         tx = Batch.prepare(tx, sequence_for: ->(account) { fetch_sequence(account) })

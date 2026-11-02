@@ -149,6 +149,27 @@ RSpec.describe XRPL::Batch do
     end
 
     describe 'what the ledger would refuse' do
+      it 'checks every inner transaction before it asks for a sequence' do
+        late_conflict = payment(outer, 'Sequence' => 140, 'TicketSequence' => 7)
+        expect { prepare(batch(payment(other), late_conflict)) }.to raise_error(ArgumentError, /RawTransactions\[1\]/)
+        expect { prepare(batch(payment(other), { 'RawTransaction' => { 'TransactionType' => 'Payment' } })) }
+          .to raise_error(ArgumentError, /RawTransactions\[1\] has no Account/)
+        expect(fetched).to be_empty
+      end
+
+      # The codec reads an 8-character String as hex: "0000000A" is 10, where
+      # #to_i gives 0. The checks use the codec's reading, the one that is
+      # serialised and signed.
+      it 'reads a Sequence given as a String the way the codec encodes it' do
+        expect { prepare(batch(payment(outer, 'Sequence' => '0000000A', 'TicketSequence' => 7), payment(outer))) }
+          .to raise_error(ArgumentError, /has both a Sequence and a TicketSequence/)
+        expect { prepare(batch(payment(outer), payment(outer), Sequence: '0000000A', TicketSequence: 9)) }
+          .to raise_error(ArgumentError, /The Batch has both/)
+
+        txs = inner(prepare(batch(payment(outer, 'Sequence' => '00000065'), payment(outer))))
+        expect(txs.map { |tx| tx['Sequence'] }).to eq(['00000065', 102])
+      end
+
       # rippled: temSEQ_AND_TICKET. Without the check the nonzero Sequence
       # was kept and pushed the account's next inner sequence up.
       it 'refuses a nonzero Sequence next to a TicketSequence, inner or outer' do
