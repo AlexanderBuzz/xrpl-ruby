@@ -124,14 +124,10 @@ module Wallet
         # 4. Serialize the signed transaction
         tx_blob = BinaryCodec.json_to_binary(signed_tx)
         
-        # 5. Generate the hash (transaction ID)
-        # For transactions, the hash is SHA512Half of the serialized transaction with a prefix
-        hash_prefix = [0x54, 0x58, 0x4E, 0x00].pack('C*') # 'TXN\0'
-        hash = Digest::SHA512.digest(hash_prefix + [tx_blob].pack('H*'))[0...32].unpack1('H*').upcase
-        
+        # 5. The transaction ID: SHA512Half of 'TXN\0' and the blob
         return {
           'tx_blob' => tx_blob,
-          'hash' => hash
+          'hash' => BinaryCodec.transaction_id(tx_blob)
         }
       end
 
@@ -193,6 +189,136 @@ module Wallet
       data = BinaryCodec.signing_claim_data(channel: channel, amount: amount)
       KeyPairs::KeyPairs.new.verify(bytes_to_hex(data), signature, public_key)
     end
+
+    # Signs a Batch (XLS-56) for an account with inner transactions in it:
+    # the BatchSigners entry that account contributes. The outer account does
+    # not need one; it signs the whole Batch with #sign once the entries are
+    # in (see .combine_batch_signers).
+    #
+    # The Batch must be complete: Account, Sequence, Flags and the inner
+    # transactions as XRPL::Client#autofill leaves them, because the
+    # signature covers the inner transaction IDs.
+    #
+    # @param batch [Hash, XRPL::Transaction] the Batch
+    # @param batch_account [String, nil] the account to sign for; by default
+    #   this wallet's. Another account when this wallet is its regular key,
+    #   or the account whose signer list this wallet belongs to.
+    # @param multisign [Boolean, String] true to sign as one signer of
+    #   batch_account's signer list, as this wallet's own account; or the
+    #   signer account, when this wallet is that signer's regular key
+    # @return [Hash] a copy of the Batch whose BatchSigners holds this one entry
+    # @raise [ArgumentError] for anything but a Batch, or an account with no
+    #   inner transaction in it
+    def sign_batch(batch, batch_account: nil, multisign: false)
+      batch = self.class.batch_hash(batch)
+      batch_account ||= @classic_address
+      unless self.class.batch_signer_accounts(batch).include?(batch_account)
+        raise ArgumentError, "#{batch_account} has no inner transaction to sign for in this Batch"
+      end
+
+      entry = { 'Account' => batch_account }
+      if multisign
+        signer_account = multisign.is_a?(String) ? multisign : @classic_address
+        data = BinaryCodec.signing_batch_data(batch, batch_account: batch_account, signer_account: signer_account)
+        entry['Signers'] = [{ 'Signer' => {
+          'Account' => signer_account,
+          'SigningPubKey' => @public_key,
+          'TxnSignature' => @key_pairs.sign(bytes_to_hex(data), @private_key, @algorithm)
+        } }]
+      else
+        data = BinaryCodec.signing_batch_data(batch, batch_account: batch_account)
+        entry['SigningPubKey'] = @public_key
+        entry['TxnSignature'] = @key_pairs.sign(bytes_to_hex(data), @private_key, @algorithm)
+      end
+
+      batch.merge('BatchSigners' => [{ 'BatchSigner' => entry }])
+    end
+
+    # The accounts that sign a Batch's BatchSigners: the Account of every
+    # inner transaction, or its Delegate when it has one, since the delegate
+    # acts for the account. Each account once, in order of appearance. The
+    # outer account is included; its entry is dropped when combining.
+    #
+    # @param batch [Hash, XRPL::Transaction] the Batch
+    # @return [Array<String>]
+    def self.batch_signer_accounts(batch)
+      batch_hash(batch)['RawTransactions'].map do |wrapper|
+        inner = wrapper['RawTransaction'] || {}
+        inner['Delegate'] || inner['Account']
+      end.compact.uniq
+    end
+
+    # Merges the copies of a Batch that each signer returned from
+    # #sign_batch into one Batch carrying all BatchSigners entries, ready for
+    # the outer account to sign with #sign.
+    #
+    # Entries are sorted by numeric AccountID, as rippled requires. The outer
+    # account's entry is dropped: its signature is the outer one. Signatures
+    # of the same account's signer list are merged into one entry with its
+    # Signers sorted the same way; an identical entry given twice is kept once.
+    #
+    # @param batches [Array<Hash, String>] the signed copies, as Hashes or
+    #   serialised hex
+    # @return [Hash] the Batch with the combined BatchSigners
+    # @raise [ArgumentError] when the copies are not of the same Batch, one
+    #   carries no BatchSigners, or the outer transaction is already signed
+    def self.combine_batch_signers(batches)
+      batches = Array(batches).map { |b| b.is_a?(String) ? BinaryCodec.binary_to_json(b) : batch_hash(b) }
+      raise ArgumentError, 'combine_batch_signers needs at least one signed Batch' if batches.empty?
+
+      batches.each do |b|
+        raise ArgumentError, 'The Batch must not be signed yet; the outer account signs last' if b['TxnSignature'] || b['Signers']
+        raise ArgumentError, 'Every Batch to combine needs BatchSigners' if Array(b['BatchSigners']).empty?
+      end
+      unsigned = batches.map { |b| b.reject { |key, _| key == 'BatchSigners' } }
+      unless unsigned.uniq.size == 1
+        raise ArgumentError, 'The Batches to combine have to be the same apart from BatchSigners'
+      end
+
+      outer = batches.first['Account']
+      by_account = {}
+      batches.flat_map { |b| b['BatchSigners'] }.each do |wrapper|
+        entry = wrapper['BatchSigner']
+        account = entry['Account']
+        next if account == outer
+
+        by_account[account] = merge_batch_signer(by_account[account], entry)
+      end
+
+      entries = by_account.values.sort_by { |entry| account_sort_key(entry['Account']) }
+      unsigned.first.merge('BatchSigners' => entries.map { |entry| { 'BatchSigner' => entry } })
+    end
+
+    # @api private
+    def self.batch_hash(batch)
+      batch = batch.to_h if !batch.is_a?(::Hash) && batch.respond_to?(:to_h)
+      unless batch.is_a?(::Hash) && batch['TransactionType'] == 'Batch'
+        raise ArgumentError, 'sign_batch needs a Batch transaction'
+      end
+
+      batch
+    end
+
+    # Two entries for the same account: identical ones collapse, signer-list
+    # entries merge their Signers, anything else is a conflict.
+    def self.merge_batch_signer(existing, entry)
+      return entry if existing.nil? || existing == entry
+
+      unless existing['Signers'] && entry['Signers']
+        raise ArgumentError, "Conflicting BatchSigners entries for #{entry['Account']}"
+      end
+
+      signers = (existing['Signers'] + entry['Signers'])
+                .uniq { |s| s['Signer']['Account'] }
+                .sort_by { |s| account_sort_key(s['Signer']['Account']) }
+      existing.merge('Signers' => signers)
+    end
+
+    def self.account_sort_key(address)
+      AddressCodec::AddressCodec.new.decode_account_id(address).to_a
+    end
+
+    private_class_method :merge_batch_signer, :account_sort_key
 
     # Derives the X-address for this wallet.
     # @param tag [Integer, false, nil] The destination tag.
