@@ -2,6 +2,31 @@
 
 module BinaryCodec
   class SerializedType
+    # to_json has two callers that want different things. The codec calls
+    # to_json(definitions, field_name) and expects the value as rippled
+    # renders it - an Integer, a String, a Hash (CLAUDE.md §2.8). Ruby's JSON
+    # library calls to_json(state) for an object inside JSON.generate,
+    # pretty_generate or dump and expects a JSON text. Without telling them
+    # apart, a Uint64 or AccountId came out as unquoted, invalid JSON and a
+    # Uint32 or STObject raised TypeError.
+    #
+    # This module sits in front of every type's to_json: given a JSON::State
+    # it renders the codec value as JSON, any other call reaches the type
+    # unchanged.
+    module JSONState
+      def to_json(*args)
+        state = args.first
+        return super unless defined?(::JSON::State) && state.is_a?(::JSON::State)
+
+        super().to_json(state)
+      end
+    end
+
+    def self.inherited(subclass)
+      super
+      subclass.prepend(JSONState)
+    end
+    prepend JSONState
 
     attr_reader :bytes
 
@@ -67,6 +92,14 @@ module BinaryCodec
     # @return [String] - JSON representation of the serialized data
     def to_json(_definitions = nil, _field_name = nil)
       to_hex
+    end
+
+    # The codec value, for encoders that ask for as_json rather than
+    # to_json (ActiveSupport): the same value to_json gives the codec.
+    #
+    # @return [Object] an Integer, String, Array or Hash
+    def as_json(*)
+      to_json
     end
 
     # Returns the value of the serialized type

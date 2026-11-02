@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Codec types work inside `JSON.generate`.** Every type answered Ruby's
+  JSON library the way it answers the codec: with the value, not with JSON
+  text. As a result `JSON.generate({ 'x' => obj })`
+  - gave invalid JSON for a Uint64 or AccountId (`{"x":00000000000036D6}`),
+  - raised `TypeError` for a Uint32 or an STObject.
+
+  Called with a `JSON::State`, which is what `JSON.generate`,
+  `pretty_generate` and `dump` pass, `to_json` now renders the codec value as
+  JSON. Every other call is unchanged, so the codec's own
+  `to_json(definitions, field_name)` still returns the value. For encoders
+  that ask for `as_json` instead (ActiveSupport), the types answer with the
+  codec value as well.
+
 ## [0.9.0] - 2026-11-02
 
 Batch (XLS-56) and permission delegation (XLS-75), both enabled on Mainnet
