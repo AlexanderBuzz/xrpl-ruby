@@ -23,6 +23,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Batch sequences around tickets.** Two cases of `autofill` were wrong
+  for a Batch:
+  - An inner transaction on a ticket got no `Sequence`. The field is
+    required and is 0 on a ticket, and rippled refuses the Batch without it.
+  - An inner `TicketCreate` did not reserve the sequences of the tickets it
+    creates, so the next inner transaction of that account repeated one of
+    them.
+
+  Both now follow rippled: a transaction on a ticket consumes no sequence,
+  and a `TicketCreate` takes one per ticket after its own, or from the
+  current sequence when it is itself on a ticket. Found through the Testnet
+  tests of xrpl-php, which fixed the first case the same day.
 - **A Batch over several accounts was charged too little.** The fee is
   `(2 + n) × base fee` plus the inner fees (XLS-56 §2.2), with n the
   signatures in `BatchSigners`; 0.8.0 left n out unless it came in as

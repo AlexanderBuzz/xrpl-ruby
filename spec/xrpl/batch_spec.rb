@@ -67,11 +67,46 @@ RSpec.describe XRPL::Batch do
       expect(txs.map { |tx| tx['Sequence'] }).to eq([100, 101])
     end
 
-    it 'keeps a given Sequence or TicketSequence' do
+    # Sequence is a required field: on a ticket it is 0. This spec used to
+    # expect no Sequence there, which rippled refuses.
+    it 'keeps a given Sequence or TicketSequence, with Sequence 0 on a ticket' do
       txs = inner(prepare(batch(payment(outer, 'Sequence' => 300), payment(other, 'TicketSequence' => 9))))
 
-      expect(txs.map { |tx| tx.values_at('Sequence', 'TicketSequence') }).to eq([[300, nil], [nil, 9]])
+      expect(txs.map { |tx| tx.values_at('Sequence', 'TicketSequence') }).to eq([[300, nil], [0, 9]])
       expect(fetched).to be_empty
+    end
+
+    it 'does not consume a sequence for an inner transaction on a ticket' do
+      txs = inner(prepare(batch(payment(outer, 'TicketSequence' => 7), payment(outer), payment(outer, 'Sequence' => 0,
+                                                                                                  'TicketSequence' => 8))))
+
+      expect(txs.map { |tx| tx.values_at('Sequence', 'TicketSequence') }).to eq([[0, 7], [101, nil], [0, 8]])
+    end
+
+    describe 'a TicketCreate' do
+      def ticket_create(account, count, extra = {})
+        { 'RawTransaction' => { 'TransactionType' => 'TicketCreate', 'Account' => account,
+                                'TicketCount' => count }.merge(extra) }
+      end
+
+      it 'makes the next inner transaction skip the tickets it creates' do
+        txs = inner(prepare(batch(ticket_create(outer, 2), payment(outer), payment(other), payment(outer))))
+
+        expect(txs.map { |tx| tx['Sequence'] }).to eq([101, 104, 500, 105])
+      end
+
+      it 'skips them after an explicit Sequence too' do
+        txs = inner(prepare(batch(ticket_create(outer, 3, 'Sequence' => 101), payment(outer))))
+
+        expect(txs.map { |tx| tx['Sequence'] }).to eq([101, 105])
+      end
+
+      # On a ticket it consumes no sequence, but its tickets take the next ones.
+      it 'reserves its tickets from the current sequence when it is on a ticket' do
+        txs = inner(prepare(batch(ticket_create(outer, 2, 'TicketSequence' => 7), payment(outer))))
+
+        expect(txs.map { |tx| tx.values_at('Sequence', 'TicketSequence') }).to eq([[0, 7], [103, nil]])
+      end
     end
 
     # xrpl.js 4.3.0 does not count explicit sequences and hands out 101 twice
