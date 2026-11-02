@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-02
+
+Batch (XLS-56) and permission delegation (XLS-75), both enabled on Mainnet
+since October, are fully supported now:
+- `autofill` prepares and prices a Batch.
+- Accounts sign their part with `Wallet#sign_batch`.
+- `Wallet.combine_batch_signers` merges the parts.
+- Delegated transactions are proven on the Testnet.
+
+All Testnet specs pass on the release commit: a Batch of one account, a swap
+between two accounts, a signer list, tickets, and delegation with and
+without permission.
+
+The codec now also reads UInt Strings the way rippled 3.4.1 does, which is
+the one breaking change. It fixes a serialisation bug that could make a
+multisigned transaction invalid: about one `Signers` entry in 256 lost its
+end marker. Codec fixtures are unchanged: 39/39 transactions and 263/263
+ledger entries, both directions.
+
 ### Breaking
 
 - **UInt Strings are read the way rippled reads them.** rippled 3.4.1
