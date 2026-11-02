@@ -93,6 +93,14 @@ RSpec.describe 'Batch signing' do
                '02200B5D52C2B87CC9E7C67E28237C205DC96A24477DB37BF34E7D4F8383D0A35272')
     end
 
+    it 'refuses an entry of RawTransactions that is not a RawTransaction wrapper' do
+      bare = batch.merge('RawTransactions' => [batch['RawTransactions'][0], batch['RawTransactions'][1]['RawTransaction']])
+
+      expect { BinaryCodec.inner_transaction_ids(bare) }.to raise_error(ArgumentError, /needs a RawTransaction/)
+      expect { BinaryCodec.inner_transaction_ids('RawTransactions' => ['x']) }
+        .to raise_error(ArgumentError, /needs a RawTransaction/)
+    end
+
     it 'refuses a Batch without Account or Flags' do
       expect { BinaryCodec.signing_batch_data(batch.except('Flags'), batch_account: secp) }
         .to raise_error(ArgumentError, /Account and Flags/)
@@ -161,6 +169,13 @@ RSpec.describe 'Batch signing' do
 
     it 'refuses an account without an inner transaction' do
       expect { Wallet::Wallet.generate.sign_batch(batch) }.to raise_error(ArgumentError, /no inner transaction/)
+    end
+
+    it 'signs a transaction model the same as its Hash' do
+      model = XRPL::Transaction::Batch.new(account: outer, flags: 1, raw_transactions: batch['RawTransactions'])
+
+      expect(secp_wallet.sign_batch(model)).to eq(secp_wallet.sign_batch(batch))
+      expect(Wallet::Wallet.batch_signer_accounts(model)).to eq([ed, secp])
     end
 
     it 'refuses anything but a Batch' do
