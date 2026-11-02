@@ -169,6 +169,12 @@ RSpec.describe BinaryCodec::Uint do
       expect(uint32_class.from(2**32 - 1).to_hex).to eq('FFFFFFFF')
     end
 
+    it 'refuses a value that is neither a String nor an Integer' do
+      [1.5, nil, [1]].each do |bad|
+        expect { uint32_class.from(bad) }.to raise_error(StandardError, /Cannot construct/), bad.inspect
+      end
+    end
+
     it 'refuses a malformed Sequence in a transaction' do
       expect { BinaryCodec.json_to_binary('Sequence' => '101junk') }.to raise_error(ArgumentError)
     end
