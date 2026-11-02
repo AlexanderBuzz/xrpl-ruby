@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-02
+
+A patch release with one fix: codec types now produce valid JSON inside
+`JSON.generate`, which before gave invalid JSON or raised. Nothing else
+changes; the codec's own calls behave as in 0.9.0. Codec fixtures 39/39
+and 263/263, both ways; all 10 Testnet specs pass on the release commit.
+
 ### Fixed
 
 - **Codec types work inside `JSON.generate`.** Every type answered Ruby's
