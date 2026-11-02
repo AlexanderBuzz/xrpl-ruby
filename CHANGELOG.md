@@ -24,7 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - and a delegate without the permission is refused with
     `terNO_DELEGATE_PERMISSION`.
 
-  The README has a section on it.
+  The README has a section on it, including the warning from xrpl.org not to
+  delegate `PaymentBurn` before `fixCleanup3_4_0` is enabled.
 - **Batch signing across accounts.** `Wallet#sign_batch` produces the
   `BatchSigners` entry for an account with inner transactions in the Batch:
   the wallet's own account, another account it is the regular key of

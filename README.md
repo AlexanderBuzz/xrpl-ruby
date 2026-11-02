@@ -216,7 +216,15 @@ An account can let another account send certain transactions on its behalf
 (XLS-75, enabled on Mainnet since 2026-10-08). A `DelegateSet` grants the
 permissions. A permission is either a transaction type, such as `"Payment"`,
 or one of the granular permissions, such as `"TrustlineAuthorize"` or
-`"PaymentMint"`. The codec translates both names:
+`"PaymentMint"`. The codec translates both names.
+
+> **Do not delegate `"PaymentBurn"` until the `fixCleanup3_4_0` amendment is
+> enabled on the target network.** Before that fix, a delegate holding
+> `PaymentBurn` can in certain circumstances also mint fungible tokens
+> (trust line tokens or MPTs). The `feature` method of a node reports
+> whether it is enabled there; [Known Amendments](https://xrpl.org/resources/known-amendments)
+> has the Mainnet status. Source:
+> [Permission Values](https://xrpl.org/docs/references/protocol/data-types/permission-values).
 
 ```ruby
 client.submit_and_wait({
