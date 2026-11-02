@@ -171,12 +171,22 @@ RSpec.describe XRPL::Batch do
 
       it 'refuses a malformed Sequence String instead of reading its leading digits' do
         expect { prepare(batch(payment(outer, 'Sequence' => '101junk'), payment(outer))) }
-          .to raise_error(ArgumentError, /whole decimal number/)
+          .to raise_error(ArgumentError, /needs a number|whole decimal number/)
+      end
+
+      # A UInt32 takes permission names, meant for PermissionValue:
+      # "TrustSet" would be ticket 21.
+      it 'refuses a name as a Sequence or TicketSequence' do
+        expect { prepare(batch(payment(other), payment(outer, 'TicketSequence' => 'TrustSet'))) }
+          .to raise_error(ArgumentError, /needs a number/)
+        expect { prepare(batch(payment(outer, 'Sequence' => 'Payment'), payment(outer))) }
+          .to raise_error(ArgumentError, /needs a number/)
+        expect(fetched).to be_empty
       end
 
       it 'refuses a malformed or out-of-range sequence before it asks for one' do
         expect { prepare(batch(payment(other), payment(outer, 'Sequence' => '101junk'))) }
-          .to raise_error(ArgumentError, /whole decimal number/)
+          .to raise_error(ArgumentError, /needs a number|whole decimal number/)
         expect { prepare(batch(payment(other), payment(outer, 'TicketSequence' => 2**32))) }
           .to raise_error(ArgumentError, /0 to 4294967295/)
         expect { prepare(batch(payment(other), payment(outer), Sequence: -1)) }.to raise_error(ArgumentError)

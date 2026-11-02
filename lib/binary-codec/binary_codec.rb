@@ -137,10 +137,19 @@ module BinaryCodec
     # it agrees with the bytes that are signed. A String is not simply
     # #to_i: the codec reads "0000000A" as 10, where #to_i gives 0.
     #
+    # Only numbers: a UInt32 also takes a permission name ("TrustSet" is
+    # 21), which is meant for PermissionValue and would be a wrong ticket or
+    # sequence here.
+    #
     # @param value [Integer, String, nil]
     # @return [Integer] 0 for nil
     def uint32_value(value)
-      value.nil? ? 0 : Uint32.from(value).value_of
+      return 0 if value.nil?
+      if value.is_a?(String) && !value.match?(/\A(\d+|\h{8})\z/)
+        raise ArgumentError, "A sequence needs a number, got #{value.inspect}"
+      end
+
+      Uint32.from(value).value_of
     end
 
     # Generates signing data for a transaction.
