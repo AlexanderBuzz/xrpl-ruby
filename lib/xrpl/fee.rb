@@ -6,7 +6,7 @@ module XRPL
   # rippled charges most transactions the network's base fee, but not all of
   # them: an EscrowFinish pays for the size of its Fulfillment, AccountDelete,
   # AMMCreate and VaultCreate cost an owner reserve rather than a fee, a Batch
-  # pays for its inner transactions, and the confidential MPT transactions
+  # pays for its signatures and its inner transactions, and the confidential MPT transactions
   # cost ten base fees. Multisigning adds one base fee per signature. The
   # rules are the ones xrpl.js applies in its autofill.
   #
@@ -40,8 +40,12 @@ module XRPL
     # @param owner_reserve [Integer, #call, nil] the owner reserve in drops,
     #   or something that fetches it; only consulted for the reserve-priced
     #   types
+    # @param batch_signatures [Integer] for a Batch: the signatures its
+    #   BatchSigners will carry once collected. Ignored when the Batch already
+    #   carries BatchSigners, which are counted instead.
     # @return [Integer] the fee in drops, rounded up
-    def calculate(transaction, base_fee:, signers_count: 0, max_fee: MAX_FEE_DROPS, owner_reserve: nil)
+    def calculate(transaction, base_fee:, signers_count: 0, max_fee: MAX_FEE_DROPS, owner_reserve: nil,
+                  batch_signatures: 0)
       tx = transaction.respond_to?(:to_h) ? transaction.to_h : transaction
       type = tx['TransactionType'] || tx[:TransactionType]
       base_fee = Integer(base_fee)
@@ -60,7 +64,8 @@ module XRPL
           calculate(raw['RawTransaction'] || raw, base_fee: base_fee, max_fee: max_fee,
                                                   owner_reserve: owner_reserve)
         end
-        fee = base_fee * 2 + inner
+        # XLS-56 §2.2: (2 + signatures in BatchSigners) × base fee + inner fees
+        fee = base_fee * (2 + batch_signature_count(tx, batch_signatures)) + inner
       elsif CONFIDENTIAL_MPT_TYPES.include?(type)
         fee += base_fee * CONFIDENTIAL_MPT_MULTIPLIER
       end
@@ -70,6 +75,13 @@ module XRPL
 
       fee = [fee, Rational(max_fee)].min unless reserve_priced
       fee.ceil
+    end
+
+    def batch_signature_count(batch, expected)
+      signers = batch['BatchSigners']
+      return Integer(expected || 0) if signers.nil? || signers.empty?
+
+      Batch.signature_count(signers)
     end
 
     def resolve_owner_reserve(owner_reserve, type)

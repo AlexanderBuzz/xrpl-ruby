@@ -7,7 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`autofill` prepares a Batch** (XLS-56, BatchV1_1 enabled on Mainnet
+  since 2026-10-09). Every inner transaction gets `tfInnerBatchTxn`, `Fee`
+  `"0"` and an empty `SigningPubKey`; sequences follow `autofillBatchTxn` in
+  xrpl.js: the outer account's inner transactions continue after the outer
+  `Sequence`, every other account starts at its own, a given `Sequence` or
+  `TicketSequence` is kept. What the ledger would refuse raises
+  `ArgumentError` before anything is signed: not exactly one mode flag,
+  fewer than two or more than eight inner transactions, an entry that is not
+  a `RawTransaction` wrapper, a nested Batch, an inner signature, fee or key.
+  The rules live in `XRPL::Batch`, which needs no network.
+
 ### Fixed
+
+- **A Batch over several accounts was charged too little.** The fee is
+  `(2 + n) × base fee` plus the inner fees (XLS-56 §2.2), with n the
+  signatures in `BatchSigners`; 0.8.0 left n out unless it came in as
+  `signers_count:`. `Fee.calculate` now counts `BatchSigners` itself, a
+  signer-list entry by its nested `Signers`. Because the signatures cover
+  the finished Batch, its fee is set before they exist:
+  `autofill(batch, batch_signatures: 2)` says how many will come. It is a
+  keyword, not a field, so it never reaches the codec. The 2 XRP cap applies
+  to a Batch as it does in xrpl.js.
 
 - **An STArray element could lose its ObjectEndMarker on encode.** The
   codec closed an element with `0xE1` only when its last byte was not

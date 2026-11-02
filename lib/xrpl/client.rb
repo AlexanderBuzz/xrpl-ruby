@@ -326,15 +326,28 @@ module XRPL
     #
     # The fee follows the transaction type (see XRPL::Fee): an EscrowFinish
     # pays for its Fulfillment, AccountDelete, AMMCreate and VaultCreate cost
-    # the owner reserve, a Batch pays for its inner transactions.
+    # the owner reserve, a Batch pays for its signatures and its inner
+    # transactions.
+    #
+    # A Batch also gets its inner transactions prepared (see XRPL::Batch):
+    # tfInnerBatchTxn, Fee "0", an empty SigningPubKey and their sequences.
+    # The BatchSigners sign over the finished Batch, so its fee has to be set
+    # before they exist; +batch_signatures:+ says how many there will be.
     #
     # @param transaction [Hash, XRPL::Transaction] the transaction to complete.
     # @param signers_count [Integer] number of signatures for multisign fee scaling.
+    # @param batch_signatures [Integer] for a Batch: the signatures its
+    #   BatchSigners will carry, one per other account (or one per signer of
+    #   an account signing with a signer list). Zero for a Batch of one account.
     # @return [Hash] a copy of the transaction with the missing fields filled in.
-    def autofill(transaction, signers_count: 0)
+    # @raise [ArgumentError] for a Batch the ledger would refuse.
+    def autofill(transaction, signers_count: 0, batch_signatures: 0)
       tx = self.class.to_transaction_hash(transaction).dup
       tx['Sequence'] ||= fetch_sequence(tx.fetch('Account'))
-      tx['Fee'] ||= calculate_fee(tx, signers_count)
+      if tx['TransactionType'] == 'Batch'
+        tx = Batch.prepare(tx, sequence_for: ->(account) { fetch_sequence(account) })
+      end
+      tx['Fee'] ||= calculate_fee(tx, signers_count, batch_signatures)
       tx['LastLedgerSequence'] ||= current_ledger_index + LEDGER_OFFSET
       tx
     end
@@ -449,11 +462,12 @@ module XRPL
       Integer(sequence)
     end
 
-    def calculate_fee(tx, signers_count)
+    def calculate_fee(tx, signers_count, batch_signatures = 0)
       Fee.calculate(
         tx,
         base_fee: base_fee_drops,
         signers_count: signers_count.to_i,
+        batch_signatures: batch_signatures.to_i,
         max_fee: @max_fee_drops,
         owner_reserve: -> { owner_reserve_drops }
       ).to_s

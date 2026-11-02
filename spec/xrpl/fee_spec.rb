@@ -77,6 +77,37 @@ RSpec.describe XRPL::Fee do
     expect(fee(batch)).to eq(20 + 10 + 350)
   end
 
+  # XLS-56 §2.2: (2 + signatures in BatchSigners) × base fee + inner fees.
+  describe 'a Batch over several accounts' do
+    let(:inner) do
+      [{ 'RawTransaction' => { 'TransactionType' => 'Payment', 'Fee' => '0' } },
+       { 'RawTransaction' => { 'TransactionType' => 'Payment', 'Fee' => '0' } }]
+    end
+    let(:batch) { { 'TransactionType' => 'Batch', 'RawTransactions' => inner } }
+
+    it 'pays one base fee per signature it will collect' do
+      expect(fee(batch, batch_signatures: 1)).to eq(30 + 20)
+    end
+
+    it 'counts the BatchSigners it already carries, nested signers included' do
+      signed = batch.merge('BatchSigners' => [
+        { 'BatchSigner' => { 'Account' => 'rA', 'SigningPubKey' => '02AB', 'TxnSignature' => 'CD' } },
+        { 'BatchSigner' => { 'Account' => 'rB', 'Signers' => [{ 'Signer' => {} }, { 'Signer' => {} }] } }
+      ])
+
+      expect(fee(signed)).to eq(50 + 20)
+      expect(fee(signed, batch_signatures: 1)).to eq(50 + 20)
+    end
+
+    it 'is capped like any ordinary fee, as in xrpl.js' do
+      expect(fee(batch, batch_signatures: 1, max_fee: 40)).to eq(40)
+    end
+
+    it 'ignores batch_signatures for other types' do
+      expect(fee({ 'TransactionType' => 'Payment' }, batch_signatures: 3)).to eq(10)
+    end
+  end
+
   it 'charges a confidential MPT transaction ten base fees' do
     expect(fee('TransactionType' => 'ConfidentialMPTSend')).to eq(100)
   end
