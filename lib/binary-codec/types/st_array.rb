@@ -3,6 +3,7 @@
 module BinaryCodec
   class STArray < SerializedType
     ARRAY_END_MARKER = 0xF1
+    OBJECT_END_MARKER = 0xE1
 
     def initialize(byte_buf = nil)
       super(byte_buf || [])
@@ -35,7 +36,11 @@ module BinaryCodec
             
             obj = STObject.from(field_value, nil, definitions)
             bytes.concat(obj.to_bytes)
-            bytes.concat([0xE1]) unless bytes.last == 0xE1
+            # Every element is closed by its own ObjectEndMarker. Testing the
+            # last byte for 0xE1 instead dropped it whenever the element
+            # happened to end in that byte - an AccountID, a Memo, or a nested
+            # object, whose own marker is 0xE1 too.
+            bytes.concat([OBJECT_END_MARKER])
           else
             raise StandardError, "STArray item must be a Hash, got #{item.class}"
           end
@@ -70,7 +75,7 @@ module BinaryCodec
         # Reconstruct the serialized item: [FieldHeader][STObject][ObjectEndMarker]
         bytes.concat(field_header.to_bytes)
         bytes.concat(obj.to_bytes)
-        bytes.concat([0xE1]) unless bytes.last == 0xE1
+        bytes.concat([OBJECT_END_MARKER])
       end
 
       # The ArrayEndMarker has to go back in. Without it the reconstructed

@@ -5,6 +5,30 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **An STArray element could lose its ObjectEndMarker on encode.** The
+  codec closed an element with `0xE1` only when its last byte was not
+  already `0xE1`, so the marker went missing whenever an element ended in
+  that byte by chance: a `Signer` or `RawTransaction` whose last AccountID
+  ends in `0xE1` (about one address in 256), a `Memo` whose data does, or an
+  element ending in a nested object (`AffectedNodes`). Such a transaction
+  was serialised, and therefore signed, differently from rippled and was
+  rejected. Every element now gets its marker; the binaries match
+  ripple-binary-codec byte for byte. The codec fixtures contain no such
+  element, which is why they never showed it.
+- **Decoding wrote a nested object's end marker twice** when re-serialising
+  it, which surfaced as stray `ArrayEndMarker` / `ObjectEndMarker` keys in
+  decoded metadata.
+
+### Changed
+
+- **`STObject.from_parser` raises on malformed input** instead of ending
+  the object silently. The last `rescue => e; break` of the codec is gone;
+  a truncated blob used to decode into a partial object.
+
 ## [0.8.0] - 2026-09-24
 
 The codec now targets **rippled 3.4.0** (released 2026-09-17) and passes the

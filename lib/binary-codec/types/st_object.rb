@@ -100,20 +100,16 @@ module BinaryCodec
       list = BytesList.new
       bytes = BinarySerializer.new(list)
 
+      # Malformed input raises rather than ending the object early: a silent
+      # break here returned a truncated object that nothing could trace.
       until parser.end?
-        begin
-          field = parser.read_field
-          break if field.name == OBJECT_END_MARKER
+        field = parser.read_field
+        break if field.name == OBJECT_END_MARKER
 
-          associated_value = parser.read_field_value(field)
+        associated_value = parser.read_field_value(field)
 
-          bytes.write_field_and_value(field, associated_value)
-          bytes.put(OBJECT_END_MARKER_BYTE) if field.type == ST_OBJECT
-        rescue => e
-          # If we fail to read a field (e.g. unknown header), we might have hit 
-          # the end of the object without an end marker, or just malformed data.
-          break
-        end
+        # Closes a nested STObject with its ObjectEndMarker itself.
+        bytes.write_field_and_value(field, associated_value)
       end
 
       STObject.new(list.to_bytes)
