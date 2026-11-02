@@ -148,9 +148,21 @@ RSpec.describe BinaryCodec::Uint do
       expect { BinaryCodec.json_to_binary('TickSize' => 'tesSUCCESS') }.to raise_error(ArgumentError)
     end
 
-    it 'reads an Int32 or Int64 String as signed decimal' do
+    it 'reads an Int32 or Int64 String as signed decimal, and only that' do
       expect(BinaryCodec::Int32.from('-5').value_of).to eq(-5)
       expect(BinaryCodec::Int64.from('-9').value_of).to eq(-9)
+      %w[DEAD 0x10 1.5].each do |bad|
+        expect { BinaryCodec::Int64.from(bad) }.to raise_error(ArgumentError, /signed decimal/), bad
+        expect { BinaryCodec::Int32.from(bad) }.to raise_error(ArgumentError, /signed decimal/), bad
+      end
+    end
+
+    it 'decodes an Int64 to the Integer it was built from' do
+      [-9, 0, 2**63 - 1].each do |n|
+        int = BinaryCodec::Int64.from(n)
+        expect(int.to_json).to eq(n)
+        expect(BinaryCodec::Int64.from(int.to_json).to_hex).to eq(int.to_hex)
+      end
     end
 
     it 'refuses a String that is not a whole number' do

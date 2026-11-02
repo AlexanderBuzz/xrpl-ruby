@@ -15,7 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **UInt64:** hex of any length, except in the base-10 fields
     (`MPTAmount`, `MaximumAmount`, `OutstandingAmount`, `LockedAmount`,
     `ConfidentialOutstandingAmount`), which are decimal.
-  - **Int32, Int64:** a signed decimal number.
+  - **Int32, Int64:** a signed decimal number. Int64 now also decodes to
+    an Integer rather than 16 hex digits, so it round-trips; rippled 3.4.1
+    has no Int64 field.
 
   This codec differed in two places, and both now follow rippled:
   - A UInt8/16/32 String in its full width was read as hex. `"00000065"`
@@ -30,10 +32,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   took them, so `TicketSequence: "TrustSet"` was ticket 21 and
   `TransferFee: "Payment"` was 0.
 
-  Integers and the names in their own fields are unchanged, as is everything the codec decodes: it renders UInt8/16/32
-  as Integers and UInt64 as 16 hex digits, which round-trips. Only code that
-  passes UInt8/16/32 values as hex Strings, or unpadded UInt64 values meant
-  as decimal, is affected. Where ripple-binary-codec accepts a value,
+  Integers and the names in their own fields are unchanged, as is everything
+  the codec decodes: it renders UInt8/16/32 as Integers and UInt64 as 16 hex
+  digits, which round-trips. Affected is only code that passes
+  - UInt8/16/32 values as hex Strings,
+  - unpadded UInt64 values meant as decimal, or
+  - a name in a field it does not belong to, such as
+    `TicketSequence: "TrustSet"` or `TransferFee: "Payment"`, which now
+    raises.
+
+  Where ripple-binary-codec accepts a value,
   `json_to_binary` now produces the same bytes; it also accepts decimal
   UInt8/16 Strings, which rippled reads and ripple-binary-codec refuses.
 
@@ -97,7 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   outer transaction as well as the inner ones. Every inner transaction is
   checked before the first sequence is fetched. A `Sequence` given as a
   String is read the way the codec encodes it, also in the BatchSigner
-  payload: `"0000000A"` is 10, where `#to_i` gives 0.
+  payload, rather than with `#to_i`; a name or a malformed String raises.
 - **`autofill` gives a transaction on a ticket `Sequence` 0.** With a
   `TicketSequence` and no `Sequence`, it fetched the account's sequence,
   which rippled refuses next to a ticket. This affected every transaction

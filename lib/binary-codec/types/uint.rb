@@ -208,8 +208,13 @@ module BinaryCodec
     # @return [Int32] The created instance.
     def self.from(value, _field_name = nil)
       return value if value.is_a?(self)
-      # rippled reads an Int32 String as a signed decimal number.
-      value = Integer(value, 10) if value.is_a?(String) && value.match?(/\A-?\d+\z/)
+      # rippled reads an Int32 String as a signed decimal number, and
+      # nothing else: not as the hex a UInt64 would take.
+      if value.is_a?(String)
+        raise ArgumentError, "#{name} needs a signed decimal number, got #{value.inspect}" unless value.match?(/\A-?\d+\z/)
+
+        value = Integer(value, 10)
+      end
       if value.is_a?(Integer)
         # Ensure it fits in 32-bit signed
         if value < -2147483648 || value > 2147483647
@@ -232,13 +237,24 @@ module BinaryCodec
       val > 0x7FFFFFFFFFFFFFFF ? val - 0x10000000000000000 : val
     end
 
+    # The signed value, not the 16 hex digits of a UInt64, so the output of
+    # the decoder goes back in through .from.
+    def to_json(_definitions = nil, _field_name = nil)
+      value_of
+    end
+
     # Creates a new Int64 instance from a value.
     # @param value [Int64, Integer] The value to convert.
     # @return [Int64] The created instance.
     def self.from(value, _field_name = nil)
       return value if value.is_a?(self)
-      # rippled reads an Int64 String as a signed decimal number.
-      value = Integer(value, 10) if value.is_a?(String) && value.match?(/\A-?\d+\z/)
+      # rippled reads an Int64 String as a signed decimal number, and
+      # nothing else: not as the hex a UInt64 would take.
+      if value.is_a?(String)
+        raise ArgumentError, "#{name} needs a signed decimal number, got #{value.inspect}" unless value.match?(/\A-?\d+\z/)
+
+        value = Integer(value, 10)
+      end
       if value.is_a?(Integer)
         if value < -9223372036854775808 || value > 9223372036854775807
           raise StandardError, "Value #{value} out of range for Int64"
