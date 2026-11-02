@@ -415,6 +415,48 @@ describe XRPL::Client do
           expect(capped.autofill(base_tx)['Fee']).to eq('100')
         end
       end
+
+      # The rules themselves are covered in batch_spec and fee_spec.
+      describe 'a Batch' do
+        let(:batch) do
+          inner = ->(account) { { 'RawTransaction' => base_tx.merge('Account' => account) } }
+          { 'TransactionType' => 'Batch', 'Account' => 'rSource', 'Flags' => 0x10000,
+            'RawTransactions' => [inner.call('rSource'), inner.call('rOther')] }
+        end
+
+        before do
+          allow(client).to receive(:account_info_response) do |account:, **|
+            seq = { 'rSource' => 42, 'rOther' => 7 }.fetch(account)
+            { 'result' => { 'account_data' => { 'Sequence' => seq } } }
+          end
+          allow(client).to receive(:request_with_retry).with('fee')
+            .and_return('result' => { 'drops' => { 'open_ledger_fee' => '10' } })
+          allow(client).to receive(:request_with_retry).with('ledger_current')
+            .and_return('result' => { 'ledger_current_index' => 100 })
+        end
+
+        it 'prepares the inner transactions and charges for the signature to come' do
+          tx = client.autofill(batch, batch_signatures: 1)
+          txs = tx['RawTransactions'].map { |w| w['RawTransaction'] }
+
+          expect(tx['Sequence']).to eq(42)
+          expect(txs.map { |t| t.values_at('Sequence', 'Fee', 'SigningPubKey', 'Flags') })
+            .to eq([[43, '0', '', 0x40000000], [7, '0', '', 0x40000000]])
+          # (2 + 1) × 10 for the Batch, 10 for each inner Payment
+          expect(tx['Fee']).to eq('50')
+        end
+
+        it 'refuses a Batch the ledger would refuse, before asking for a fee' do
+          expect(client).not_to receive(:request_with_retry).with('fee')
+
+          expect { client.autofill(batch.merge('Flags' => 0)) }.to raise_error(ArgumentError, /exactly one/)
+        end
+
+        it 'keeps the hint out of the transaction, whether or not Fee is preset' do
+          expect(client.autofill(batch, batch_signatures: 1).keys).not_to include('BatchSignatures')
+          expect(client.autofill(batch.merge('Fee' => '99'), batch_signatures: 1)['Fee']).to eq('99')
+        end
+      end
     end
 
     describe '#submit' do
