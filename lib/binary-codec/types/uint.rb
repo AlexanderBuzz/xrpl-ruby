@@ -39,19 +39,32 @@ module BinaryCodec
                            .first
         return new(int_to_bytes(code, width)) if code
 
-        # Handle hex strings or numeric strings
-        if valid_hex?(value) && value.length == self.width * 2
-          return new(hex_to_bytes(value))
+        # Hex in the field's full width, as this codec has always rendered
+        # it, or a whole decimal number, as rippled reads a UInt string
+        # (beast::lexicalCastThrow in STParsedJSON). Anything else used to
+        # go through #to_i, which made "101junk" 101 and "abc" 0.
+        return new(hex_to_bytes(value)) if valid_hex?(value) && value.length == width * 2
+        unless value.match?(/\A\d+\z/)
+          raise ArgumentError, "#{name} needs a whole decimal number or #{width * 2} hex digits, got #{value.inspect}"
         end
-        return new(int_to_bytes(value.to_i, width))
+
+        return new(int_to_bytes(in_range!(Integer(value, 10)), width))
       end
 
-      if value.is_a?(Integer)
-        return new(int_to_bytes(value, width))
-      end
+      return new(int_to_bytes(in_range!(value), width)) if value.is_a?(Integer)
 
       raise StandardError, "Cannot construct #{self} from the value given"
     end
+
+    # A value that does not fit the width used to come out a byte too long
+    # (2**32 as a UInt32) or, if negative, as 0.
+    def self.in_range!(number)
+      max = (1 << (width * 8)) - 1
+      return number if number.between?(0, max)
+
+      raise ArgumentError, "#{name} takes 0 to #{max}, got #{number}"
+    end
+    private_class_method :in_range!
 
     # Creates a Uint instance from a parser.
     # @param parser [BinaryParser] The parser to read from.

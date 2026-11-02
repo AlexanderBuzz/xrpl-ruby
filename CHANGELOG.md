@@ -93,6 +93,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **UInt fields refuse malformed values.** A String is now either a whole
+  decimal number, as rippled reads it, or hex in the field's full width, as
+  this codec has always rendered it. Before, every other String went through
+  `#to_i`:
+  - `"101junk"` became 101, `"12.5"` became 12.
+  - `"abc"`, `"-1"` and `"0x10"` became 0.
+  - An unpadded UInt64 hex value such as `"36d6"` became 36.
+
+  A number outside the field's range also raises now. Before, `2**32` as a
+  UInt32 came out five bytes long, and a negative number became 0. Both
+  cases raise `ArgumentError`.
 - **`STObject.from_parser` raises on malformed input** instead of ending
   the object silently. The last `rescue => e; break` of the codec is gone;
   a truncated blob used to decode into a partial object.

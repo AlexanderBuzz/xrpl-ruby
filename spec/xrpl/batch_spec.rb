@@ -170,6 +170,11 @@ RSpec.describe XRPL::Batch do
         expect(txs.map { |tx| tx['Sequence'] }).to eq(['00000065', 102])
       end
 
+      it 'refuses a malformed Sequence String instead of reading its leading digits' do
+        expect { prepare(batch(payment(outer, 'Sequence' => '101junk'), payment(outer))) }
+          .to raise_error(ArgumentError, /whole decimal number/)
+      end
+
       # rippled: temSEQ_AND_TICKET. Without the check the nonzero Sequence
       # was kept and pushed the account's next inner sequence up.
       it 'refuses a nonzero Sequence next to a TicketSequence, inner or outer' do
