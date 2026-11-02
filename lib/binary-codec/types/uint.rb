@@ -74,7 +74,9 @@ module BinaryCodec
         raise ArgumentError, "#{name} needs up to 16 hex digits, got #{value.inspect}"
       elsif width > 8 && valid_hex?(value) && value.length == width * 2
         Integer(value, 16)
-      elsif value.match?(/\A\d+\z/)
+      elsif value.match?(/\A\+?\d+\z/)
+        # beast::lexicalCast skips a leading '+'; UInt64 above does not
+        # (std::from_chars), so it takes none.
         Integer(value, 10)
       else
         raise ArgumentError, "#{name} needs a whole decimal number, got #{value.inspect}"
@@ -211,7 +213,7 @@ module BinaryCodec
       # rippled reads an Int32 String as a signed decimal number, and
       # nothing else: not as the hex a UInt64 would take.
       if value.is_a?(String)
-        raise ArgumentError, "#{name} needs a signed decimal number, got #{value.inspect}" unless value.match?(/\A-?\d+\z/)
+        raise ArgumentError, "#{name} needs a signed decimal number, got #{value.inspect}" unless value.match?(/\A[+-]?\d+\z/)
 
         value = Integer(value, 10)
       end
@@ -237,10 +239,12 @@ module BinaryCodec
       val > 0x7FFFFFFFFFFFFFFF ? val - 0x10000000000000000 : val
     end
 
-    # The signed value, not the 16 hex digits of a UInt64, so the output of
-    # the decoder goes back in through .from.
+    # The signed value as a decimal String: not the 16 hex digits of a
+    # UInt64, so the decoder's output goes back in through .from; and a
+    # String, as rippled renders 64-bit values, so a JSON reader that holds
+    # numbers as doubles (JavaScript) cannot round it.
     def to_json(_definitions = nil, _field_name = nil)
-      value_of
+      value_of.to_s
     end
 
     # Creates a new Int64 instance from a value.
@@ -251,7 +255,7 @@ module BinaryCodec
       # rippled reads an Int64 String as a signed decimal number, and
       # nothing else: not as the hex a UInt64 would take.
       if value.is_a?(String)
-        raise ArgumentError, "#{name} needs a signed decimal number, got #{value.inspect}" unless value.match?(/\A-?\d+\z/)
+        raise ArgumentError, "#{name} needs a signed decimal number, got #{value.inspect}" unless value.match?(/\A[+-]?\d+\z/)
 
         value = Integer(value, 10)
       end

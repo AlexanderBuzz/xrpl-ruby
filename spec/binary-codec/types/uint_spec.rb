@@ -157,12 +157,27 @@ RSpec.describe BinaryCodec::Uint do
       end
     end
 
-    it 'decodes an Int64 to the Integer it was built from' do
-      [-9, 0, 2**63 - 1].each do |n|
+    # As a decimal String, as rippled renders 64-bit values: a JSON reader
+    # that holds numbers as doubles would round 2**53 + 1.
+    it 'decodes an Int64 to a decimal String that goes back in unchanged' do
+      [-9, 0, 2**53 + 1, 2**63 - 1].each do |n|
         int = BinaryCodec::Int64.from(n)
-        expect(int.to_json).to eq(n)
+        expect(int.to_json).to eq(n.to_s)
         expect(BinaryCodec::Int64.from(int.to_json).to_hex).to eq(int.to_hex)
       end
+    end
+
+    # beast::lexicalCast in rippled 3.4.1 skips a leading '+' for every
+    # integer type it reads; UInt64 is read with std::from_chars and takes none.
+    it 'accepts a leading plus sign where rippled does' do
+      expect(BinaryCodec::Int32.from('+5').value_of).to eq(5)
+      expect(BinaryCodec::Int64.from('+5').value_of).to eq(5)
+      expect(uint32_class.from('+5').value_of).to eq(5)
+      expect(uint8_class.from('+5').value_of).to eq(5)
+      expect(BinaryCodec.uint32_value('+5')).to eq(5)
+      expect { uint64_class.from('+36d6') }.to raise_error(ArgumentError)
+      expect { uint64_class.from('+100', 'MPTAmount') }.to raise_error(ArgumentError)
+      expect { uint32_class.from('++5') }.to raise_error(ArgumentError)
     end
 
     it 'refuses a String that is not a whole number' do

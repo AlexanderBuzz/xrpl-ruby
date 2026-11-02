@@ -15,9 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **UInt64:** hex of any length, except in the base-10 fields
     (`MPTAmount`, `MaximumAmount`, `OutstandingAmount`, `LockedAmount`,
     `ConfidentialOutstandingAmount`), which are decimal.
-  - **Int32, Int64:** a signed decimal number. Int64 now also decodes to
-    an Integer rather than 16 hex digits, so it round-trips; rippled 3.4.1
-    has no Int64 field.
+  - **Int32, Int64:** a signed decimal number.
+
+  A leading `+` is accepted where rippled accepts it (UInt8/16/32, Int32,
+  Int64), not for UInt64.
 
   This codec differed in two places, and both now follow rippled:
   - A UInt8/16/32 String in its full width was read as hex. `"00000065"`
@@ -39,7 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - unpadded UInt64 values meant as decimal, or
   - a name in a field it does not belong to, such as
     `TicketSequence: "TrustSet"` or `TransferFee: "Payment"`, which now
-    raises.
+    raises, or
+  - an Int64 as a hex String: `Int64.from("DEAD")` was 57005 and now raises.
+    Int64 also decodes to a decimal String (`"-9"`) instead of 16 hex digits
+    (`"FFFFFFFFFFFFFFF7"`), so it round-trips. rippled 3.4.1 has no Int64
+    field, so this concerns direct use of the type only.
 
   Where ripple-binary-codec accepts a value,
   `json_to_binary` now produces the same bytes; it also accepts decimal

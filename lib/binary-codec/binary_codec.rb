@@ -146,7 +146,7 @@ module BinaryCodec
     # @return [Integer] 0 for nil
     def uint32_value(value)
       return 0 if value.nil?
-      if value.is_a?(String) && !value.match?(/\A\d+\z/)
+      if value.is_a?(String) && !value.match?(/\A\+?\d+\z/)
         raise ArgumentError, "A sequence needs a number, got #{value.inspect}"
       end
 
