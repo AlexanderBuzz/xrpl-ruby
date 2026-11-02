@@ -107,58 +107,96 @@ RSpec.describe 'Batch signing' do
     end
   end
 
+  # xrpl.js signs these over a Batch without a Sequence, so its sequence
+  # value is 0. sign_batch refuses such a Batch (see below), so the vectors
+  # are checked on what sign_batch is made of: the payload and the key.
+  describe 'the xrpl.js signatures' do
+    def signature(wallet, batch_account, signer_account = nil)
+      wallet.sign(bytes_to_hex(BinaryCodec.signing_batch_data(batch, batch_account: batch_account,
+                                                                     signer_account: signer_account)))
+    end
+
+    it 'match with secp256k1, Ed25519 and a regular key' do
+      expect(signature(secp_wallet, secp))
+        .to eq('304502210098890858AA57D6515D7C523FE076FA97BFA87DA666A87B4A7CF44249181DC1DC' \
+               '02201B90E513FE2F45D41FB31850F463C0ECBA8F5126B1AF431B67C4004CA0DD8042')
+      expect(signature(ed_wallet, ed))
+        .to eq('27B496F0C1F2C4789A0E6CF25265069980190C786053CF5D6C066C07E21D632A' \
+               '6EB87C56275109A8542EEDE782FDC5591EA51FAF28C3FCFCF35BCE960F1D8601')
+      expect(signature(regkey_wallet, ed))
+        .to eq('046315C731DF089E08EB6662251F12B22938ED462F66BC561A847A87DF6B3C9A' \
+               'C811D9EC5971EDEC2BA96C959BDE883CD838B7EF6460A47AD9B71518F1A2A00B')
+    end
+
+    it 'match when multisigning, as itself and as another signer account' do
+      expect(signature(regkey_wallet, ed, regkey))
+        .to eq('8FCA6C1056C2146DC13F4D10BA297335A82F562D837FA3C65D75DCDC87540F61' \
+               '428B7370FCC1DE4D83B6FA1A00A18CD9283E7B08089091ED84CC3E4A8B43F00F')
+      expect(signature(regkey_wallet, ed, outer))
+        .to eq('D80D4195BF67D5CB12CA225D04DA4D00AC77250803671E09DF61F1695A831FAD' \
+               '6BF820F335DD2D8CFE16DA55CFC2E64AEC8A1429524E6CDB6C36B7AEA717C700')
+    end
+  end
+
   describe 'Wallet#sign_batch' do
-    it 'signs like xrpl.js with secp256k1' do
-      signed = secp_wallet.sign_batch(batch)
+    def payload(batch_account, signer_account = nil)
+      bytes_to_hex(BinaryCodec.signing_batch_data(sequenced, batch_account: batch_account,
+                                                             signer_account: signer_account))
+    end
+
+    it 'adds the BatchSigner entry and leaves the inner transactions untouched' do
+      signed = secp_wallet.sign_batch(sequenced)
 
       expect(signed['BatchSigners']).to eq([{ 'BatchSigner' => {
         'Account' => secp,
         'SigningPubKey' => '02691AC5AE1C4C333AE5DF8A93BDC495F0EEBFC6DB0DA7EB6EF808F3AFC006E3FE',
-        'TxnSignature' => '304502210098890858AA57D6515D7C523FE076FA97BFA87DA666A87B4A7CF44249181DC1DC' \
-                          '02201B90E513FE2F45D41FB31850F463C0ECBA8F5126B1AF431B67C4004CA0DD8042'
+        'TxnSignature' => secp_wallet.sign(payload(secp))
       } }])
-      expect(signed['RawTransactions']).to eq(batch['RawTransactions'])
+      expect(signed.except('BatchSigners')).to eq(sequenced)
     end
 
-    it 'signs like xrpl.js with Ed25519' do
-      expect(entry(ed_wallet.sign_batch(batch))).to include(
+    it 'signs like xrpl.js with Ed25519 over a Batch with a Sequence' do
+      expect(entry(ed_wallet.sign_batch(sequenced))).to include(
         'Account' => ed,
-        'TxnSignature' => '27B496F0C1F2C4789A0E6CF25265069980190C786053CF5D6C066C07E21D632A' \
-                          '6EB87C56275109A8542EEDE782FDC5591EA51FAF28C3FCFCF35BCE960F1D8601'
+        'TxnSignature' => '93BC0B856D4A5A8C51955BF2C9D33BD06B67D8EC3569A7A8290E0D14F5AE2882' \
+                          'B86DA9F79B07C878D976FD0D376852407936B79B8BCB8840903675C853EE7205'
       )
     end
 
     it 'signs for another account with its regular key' do
-      expect(entry(regkey_wallet.sign_batch(batch, batch_account: ed))).to eq(
+      expect(entry(regkey_wallet.sign_batch(sequenced, batch_account: ed))).to eq(
         'Account' => ed,
         'SigningPubKey' => 'ED37D3F048B7F1E680B0A97F70C7843160B9F25D6398D07E68B9A2C83AA8E1B156',
-        'TxnSignature' => '046315C731DF089E08EB6662251F12B22938ED462F66BC561A847A87DF6B3C9A' \
-                          'C811D9EC5971EDEC2BA96C959BDE883CD838B7EF6460A47AD9B71518F1A2A00B'
+        'TxnSignature' => regkey_wallet.sign(payload(ed))
       )
     end
 
-    it 'multisigns as itself' do
-      expect(entry(regkey_wallet.sign_batch(batch, batch_account: ed, multisign: true))).to eq(
+    it 'multisigns as itself and as another signer account' do
+      as_itself = entry(regkey_wallet.sign_batch(sequenced, batch_account: ed, multisign: true))
+      as_outer = entry(regkey_wallet.sign_batch(sequenced, batch_account: ed, multisign: outer))
+
+      expect(as_itself).to eq(
         'Account' => ed,
         'Signers' => [{ 'Signer' => {
           'Account' => regkey,
           'SigningPubKey' => 'ED37D3F048B7F1E680B0A97F70C7843160B9F25D6398D07E68B9A2C83AA8E1B156',
-          'TxnSignature' => '8FCA6C1056C2146DC13F4D10BA297335A82F562D837FA3C65D75DCDC87540F61' \
-                            '428B7370FCC1DE4D83B6FA1A00A18CD9283E7B08089091ED84CC3E4A8B43F00F'
+          'TxnSignature' => regkey_wallet.sign(payload(ed, regkey))
         } }]
       )
+      expect(as_outer['Signers'][0]['Signer']).to include('Account' => outer,
+                                                          'TxnSignature' => regkey_wallet.sign(payload(ed, outer)))
     end
 
-    it 'multisigns as another signer account' do
-      signer = entry(regkey_wallet.sign_batch(batch, batch_account: ed, multisign: outer))['Signers'][0]['Signer']
-
-      expect(signer['Account']).to eq(outer)
-      expect(signer['TxnSignature']).to eq('D80D4195BF67D5CB12CA225D04DA4D00AC77250803671E09DF61F1695A831FAD' \
-                                           '6BF820F335DD2D8CFE16DA55CFC2E64AEC8A1429524E6CDB6C36B7AEA717C700')
+    # rippled requires a Sequence; a signature over the value 0 matches no
+    # Batch that can be submitted. The usual cause is signing before autofill.
+    it 'refuses a Batch without a Sequence or TicketSequence' do
+      expect { secp_wallet.sign_batch(batch) }.to raise_error(ArgumentError, /Sequence or TicketSequence/)
+      expect { secp_wallet.sign_batch(batch.merge('Sequence' => 0)) }
+        .to raise_error(ArgumentError, /Sequence or TicketSequence/)
     end
 
     it 'has the delegate sign for a delegated inner transaction' do
-      delegated = Marshal.load(Marshal.dump(batch))
+      delegated = Marshal.load(Marshal.dump(sequenced))
       delegated['RawTransactions'][0]['RawTransaction']['Delegate'] = regkey
 
       expect(Wallet::Wallet.batch_signer_accounts(batch)).to eq([ed, secp])
@@ -168,18 +206,34 @@ RSpec.describe 'Batch signing' do
     end
 
     it 'refuses an account without an inner transaction' do
-      expect { Wallet::Wallet.generate.sign_batch(batch) }.to raise_error(ArgumentError, /no inner transaction/)
+      expect { Wallet::Wallet.generate.sign_batch(sequenced) }.to raise_error(ArgumentError, /no inner transaction/)
     end
 
     it 'signs a transaction model the same as its Hash' do
-      model = XRPL::Transaction::Batch.new(account: outer, flags: 1, raw_transactions: batch['RawTransactions'])
+      model = XRPL::Transaction::Batch.new(account: outer, flags: 0x10000, sequence: 215,
+                                           last_ledger_sequence: 14_973, network_id: 21_336,
+                                           raw_transactions: sequenced['RawTransactions'])
 
-      expect(secp_wallet.sign_batch(model)).to eq(secp_wallet.sign_batch(batch))
+      expect(secp_wallet.sign_batch(model)).to eq(secp_wallet.sign_batch(sequenced))
       expect(Wallet::Wallet.batch_signer_accounts(model)).to eq([ed, secp])
     end
 
+    it 'signs inner transaction models the same as their Hashes, and returns Hashes' do
+      inner = sequenced['RawTransactions'][1]['RawTransaction']
+      model = XRPL::Transaction::Payment.new(account: inner['Account'], destination: inner['Destination'],
+                                             amount: inner['Amount'], fee: '0', signing_pub_key: '',
+                                             sequence: inner['Sequence'], flags: inner['Flags'])
+      with_model = sequenced.merge('RawTransactions' => [sequenced['RawTransactions'][0],
+                                                         { 'RawTransaction' => model }])
+
+      signed = secp_wallet.sign_batch(with_model)
+      expect(signed).to eq(secp_wallet.sign_batch(sequenced))
+      expect(BinaryCodec.inner_transaction_ids(with_model)).to eq(BinaryCodec.inner_transaction_ids(sequenced))
+      expect { BinaryCodec.json_to_binary(signed) }.not_to raise_error
+    end
+
     it 'refuses anything but a Batch' do
-      expect { secp_wallet.sign_batch(batch['RawTransactions'][0]['RawTransaction']) }
+      expect { secp_wallet.sign_batch(sequenced['RawTransactions'][0]['RawTransaction']) }
         .to raise_error(ArgumentError, /needs a Batch/)
     end
   end

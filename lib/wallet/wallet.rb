@@ -211,6 +211,13 @@ module Wallet
     #   inner transaction in it
     def sign_batch(batch, batch_account: nil, multisign: false)
       batch = self.class.batch_hash(batch)
+      # rippled requires a Sequence, and the signature covers its value (or
+      # the TicketSequence). Signed without one, the entry matches no Batch
+      # that can be submitted: autofill first, then sign.
+      unless BinaryCodec.batch_sequence_value(batch).positive?
+        raise ArgumentError, 'A Batch needs its Sequence or TicketSequence before it is signed; autofill it first'
+      end
+
       batch_account ||= @classic_address
       unless self.class.batch_signer_accounts(batch).include?(batch_account)
         raise ArgumentError, "#{batch_account} has no inner transaction to sign for in this Batch"
@@ -289,14 +296,23 @@ module Wallet
       unsigned.first.merge('BatchSigners' => entries.map { |entry| { 'BatchSigner' => entry } })
     end
 
+    # The Batch as a Hash, its inner transactions included: a model, or a
+    # Hash whose RawTransaction entries are models, comes back as plain
+    # Hashes, so the copy that sign_batch returns can be serialised.
+    #
     # @api private
     def self.batch_hash(batch)
       batch = batch.to_h if !batch.is_a?(::Hash) && batch.respond_to?(:to_h)
       unless batch.is_a?(::Hash) && batch['TransactionType'] == 'Batch'
         raise ArgumentError, 'sign_batch needs a Batch transaction'
       end
+      return batch unless batch['RawTransactions'].is_a?(Array)
 
-      batch
+      raw = batch['RawTransactions'].map do |wrapper|
+        inner = wrapper.is_a?(::Hash) ? wrapper['RawTransaction'] : nil
+        inner.is_a?(XRPL::Transaction) ? wrapper.merge('RawTransaction' => inner.to_h) : wrapper
+      end
+      batch.merge('RawTransactions' => raw)
     end
 
     # Two entries for the same account: identical ones collapse, signer-list

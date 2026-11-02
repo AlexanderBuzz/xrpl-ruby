@@ -81,6 +81,7 @@ module BinaryCodec
     def inner_transaction_ids(batch)
       Array(batch['RawTransactions']).map do |wrapper|
         inner = wrapper.is_a?(::Hash) ? wrapper['RawTransaction'] : nil
+        inner = inner.to_h if defined?(XRPL::Transaction) && inner.is_a?(XRPL::Transaction)
         raise ArgumentError, 'Every entry of RawTransactions needs a RawTransaction' unless inner.is_a?(::Hash)
 
         transaction_id(inner)
@@ -92,6 +93,10 @@ module BinaryCodec
     # checkBatchMultiSign): 'BCH\0', the outer Account, the outer sequence
     # value, Flags, the number of inner transactions and their IDs, then the
     # BatchSigner's Account and, when multisigning, the signing account.
+    #
+    # Like encodeForSigningBatch in xrpl.js, this encodes what it is given: a
+    # Batch without a Sequence encodes the sequence value 0. Wallet#sign_batch
+    # refuses to sign one, because rippled requires the Sequence.
     #
     # @param batch [Hash] the Batch, with Account, Flags and its inner
     #   transactions complete
