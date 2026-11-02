@@ -60,9 +60,11 @@ RSpec.describe XRPL::Batch do
       expect(fetched).to eq([other])
     end
 
+    # On a ticket the outer Sequence is 0. This spec used to give it 100 as
+    # well, a combination rippled refuses (temSEQ_AND_TICKET).
     it 'asks the ledger for the outer account when the outer transaction uses a ticket' do
       sequences[outer] = 100
-      txs = inner(prepare(batch(payment(outer), payment(outer), TicketSequence: 7)))
+      txs = inner(prepare(batch(payment(outer), payment(outer), Sequence: 0, TicketSequence: 7)))
 
       expect(txs.map { |tx| tx['Sequence'] }).to eq([100, 101])
     end
@@ -147,6 +149,24 @@ RSpec.describe XRPL::Batch do
     end
 
     describe 'what the ledger would refuse' do
+      # rippled: temSEQ_AND_TICKET. Without the check the nonzero Sequence
+      # was kept and pushed the account's next inner sequence up.
+      it 'refuses a nonzero Sequence next to a TicketSequence, inner or outer' do
+        expect { prepare(batch(payment(outer, 'Sequence' => 140, 'TicketSequence' => 7), payment(outer))) }
+          .to raise_error(ArgumentError, /RawTransactions\[0\] has both a Sequence and a TicketSequence/)
+        expect { prepare(batch(payment(outer), payment(outer), TicketSequence: 9)) }
+          .to raise_error(ArgumentError, /The Batch has both a Sequence and a TicketSequence/)
+        expect(fetched).to be_empty
+      end
+
+      it 'accepts Sequence 0 next to a TicketSequence' do
+        sequences[outer] = 100
+        txs = inner(prepare(batch(payment(outer, 'Sequence' => 0, 'TicketSequence' => 7), payment(outer),
+                                  Sequence: 0, TicketSequence: 9)))
+
+        expect(txs.map { |tx| tx.values_at('Sequence', 'TicketSequence') }).to eq([[0, 7], [100, nil]])
+      end
+
       it 'needs exactly one mode flag' do
         flags = described_class::FLAGS['Batch']
         expect { prepare(batch(payment(outer), payment(outer), flags: 0)) }

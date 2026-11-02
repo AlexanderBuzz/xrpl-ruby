@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A Sequence next to a TicketSequence is refused in a Batch.** On a ticket
+  `Sequence` is 0, and rippled refuses anything else (`temSEQ_AND_TICKET`).
+  `autofill` kept a nonzero one on an inner transaction and counted it, so
+  the account's later inner transactions got sequences that were too high.
+  It now raises `ArgumentError` before handing out any sequence, for the
+  outer transaction as well as the inner ones.
 - **Batch sequences around tickets.** Two cases of `autofill` were wrong
   for a Batch:
   - An inner transaction on a ticket got no `Sequence`. The field is

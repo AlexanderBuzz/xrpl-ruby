@@ -36,6 +36,7 @@ module XRPL
     # @raise [ArgumentError] when the ledger would refuse the Batch
     def prepare(batch, sequence_for:)
       check_mode!(batch['Flags'])
+      check_sequence_and_ticket!(batch, 'The Batch')
       raw = batch['RawTransactions']
       unless raw.is_a?(Array) && raw.size.between?(MIN_INNER, MAX_INNER)
         count = raw.is_a?(Array) ? raw.size : 0
@@ -117,8 +118,19 @@ module XRPL
       inner.dup
     end
 
+    # On a ticket, Sequence is 0; rippled refuses a nonzero Sequence next to
+    # a TicketSequence (temSEQ_AND_TICKET). Refused before any sequence is
+    # handed out, so it cannot push the account's later sequences up.
+    def check_sequence_and_ticket!(transaction, label)
+      return if transaction['TicketSequence'].nil? || transaction['Sequence'].to_i.zero?
+
+      raise ArgumentError, "#{label} has both a Sequence and a TicketSequence; " \
+                           'on a ticket, Sequence is 0 (temSEQ_AND_TICKET)'
+    end
+
     def check_inner!(inner, index)
       prefix = "RawTransactions[#{index}]"
+      check_sequence_and_ticket!(inner, prefix)
       raise ArgumentError, "#{prefix} is a Batch; a Batch cannot nest" if inner['TransactionType'] == 'Batch'
       if inner.key?('TxnSignature') || inner.key?('Signers')
         raise ArgumentError, "#{prefix} must not be signed; the Batch is signed as a whole"
@@ -143,6 +155,6 @@ module XRPL
       end
     end
 
-    private_class_method :check_mode!, :unwrap, :check_inner!, :first_sequence
+    private_class_method :check_mode!, :check_sequence_and_ticket!, :unwrap, :check_inner!, :first_sequence
   end
 end
