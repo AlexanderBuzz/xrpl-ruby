@@ -12,11 +12,15 @@ RSpec.describe 'XRPL Batch sequences around tickets', :integration, :network do
     skip 'Set XRPL_NETWORK=1 to run network integration specs' unless ENV['XRPL_NETWORK'] == '1'
   end
 
-  let(:client) { XRPL::Client.new(XRPL::Client::TESTNET_URL).tap(&:connect!) }
+  # Connects on first use. The after hook disconnects only what was
+  # connected, so a skipped example never reaches the network.
+  let(:client) { @client = XRPL::Client.new(XRPL::Client::TESTNET_URL).tap(&:connect!) }
   let(:all_or_nothing) { XRPL::Batch::FLAGS['Batch']['tfAllOrNothing'] }
 
   after do
-    client.disconnect
+    next unless @client
+
+    @client.disconnect
     sleep 0.2
   end
 
