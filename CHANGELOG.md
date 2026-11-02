@@ -24,8 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - An unpadded UInt64 String was read as decimal. `"100"` as `IndexNext`
     was 100 and is `0x100` in rippled; `"36d6"` was 36.
 
-  Integers and the names (`"Payment"`, `"tesSUCCESS"`, permission names)
-  are unchanged, as is everything the codec decodes: it renders UInt8/16/32
+  Names count only for their own field: `TransactionType` and
+  `LedgerEntryType` take type names, `TransactionResult` result codes,
+  `PermissionValue` permission names. Before, any field of the same width
+  took them, so `TicketSequence: "TrustSet"` was ticket 21 and
+  `TransferFee: "Payment"` was 0.
+
+  Integers and the names in their own fields are unchanged, as is everything the codec decodes: it renders UInt8/16/32
   as Integers and UInt64 as 16 hex digits, which round-trips. Only code that
   passes UInt8/16/32 values as hex Strings, or unpadded UInt64 values meant
   as decimal, is affected. Where ripple-binary-codec accepts a value,

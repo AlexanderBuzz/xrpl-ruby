@@ -138,6 +138,16 @@ RSpec.describe BinaryCodec::Uint do
       expect(BinaryCodec.json_to_binary('MPTAmount' => '100')).to end_with('0000000000000064')
     end
 
+    # The name tables hang on the width; with the field known, only that
+    # field's own names count.
+    it 'takes a name only for the field it belongs to' do
+      expect(BinaryCodec.json_to_binary('TransactionType' => 'Payment')).to eq('120000')
+      expect(BinaryCodec.json_to_binary('PermissionValue' => 'TrustSet')).to eq(BinaryCodec.json_to_binary('PermissionValue' => 21))
+      expect { BinaryCodec.json_to_binary('TicketSequence' => 'TrustSet') }.to raise_error(ArgumentError)
+      expect { BinaryCodec.json_to_binary('TransferFee' => 'Payment') }.to raise_error(ArgumentError)
+      expect { BinaryCodec.json_to_binary('TickSize' => 'tesSUCCESS') }.to raise_error(ArgumentError)
+    end
+
     it 'reads an Int32 or Int64 String as signed decimal' do
       expect(BinaryCodec::Int32.from('-5').value_of).to eq(-5)
       expect(BinaryCodec::Int64.from('-9').value_of).to eq(-9)

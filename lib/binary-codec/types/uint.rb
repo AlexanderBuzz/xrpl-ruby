@@ -30,7 +30,8 @@ module BinaryCodec
     # any length, except in the base-10 fields (BASE10_UINT64_FIELDS),
     # which are decimal. The fields that carry a name also take the name.
     # ripple-binary-codec reads them the same way. Anything else, and any
-    # value outside the type's range, raises ArgumentError.
+    # value outside the type's range, raises ArgumentError. Names count only
+    # for their own field (NAMED_FIELDS) when the field is given.
     #
     # @param value [Uint, String, Integer] The value to convert.
     # @param field_name [String, nil] the field, which decides how a UInt64
@@ -44,9 +45,10 @@ module BinaryCodec
         # LedgerEntryType (UInt16), TransactionResult (UInt8) and the
         # PermissionValue of a DelegateSet (UInt32). A name is never a valid
         # number, so the lookup cannot capture a numeric string.
-        code = NAMED_VALUES.fetch(self, [])
-                           .filter_map { |table| Definitions.instance.public_send(table)[value] }
-                           .first
+        # With the field known, only that field's names count, so a
+        # Sequence cannot take "TrustSet" or a TransferFee "Payment".
+        tables = field_name ? Array(NAMED_FIELDS[field_name]) : NAMED_VALUES.fetch(self, [])
+        code = tables.filter_map { |table| Definitions.instance.public_send(table)[value] }.first
         return new(int_to_bytes(code, width)) if code
 
         return new(int_to_bytes(in_range!(parse_string(value, field_name)), width))
