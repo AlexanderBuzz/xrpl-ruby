@@ -74,6 +74,27 @@ RSpec.describe XRPL::Batch do
       expect(fetched).to be_empty
     end
 
+    # xrpl.js 4.3.0 does not count explicit sequences and hands out 101 twice
+    # here; the ledger would refuse the second one.
+    it 'continues after an explicit Sequence of the same account' do
+      txs = inner(prepare(batch(payment(outer, 'Sequence' => 101), payment(outer), payment(other, 'Sequence' => 500),
+                                payment(other))))
+
+      expect(txs.map { |tx| tx['Sequence'] }).to eq([101, 102, 500, 501])
+    end
+
+    it 'continues after an explicit Sequence that comes after a filled one' do
+      txs = inner(prepare(batch(payment(outer), payment(outer, 'Sequence' => 102), payment(outer))))
+
+      expect(txs.map { |tx| tx['Sequence'] }).to eq([101, 102, 103])
+    end
+
+    it 'does not go below the first free sequence for an explicit one that is lower' do
+      txs = inner(prepare(batch(payment(outer, 'Sequence' => 50), payment(outer))))
+
+      expect(txs.map { |tx| tx['Sequence'] }).to eq([50, 101])
+    end
+
     it 'accepts a Fee of "0", an empty key and transaction models' do
       model = XRPL::Transaction::Payment.new(account: other, destination: 'rDest', amount: '5')
       txs = inner(prepare(batch(payment(outer, 'Fee' => '0', 'SigningPubKey' => ''),

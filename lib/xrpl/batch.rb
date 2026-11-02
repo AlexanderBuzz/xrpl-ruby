@@ -42,7 +42,12 @@ module XRPL
         raise ArgumentError, "A Batch carries #{MIN_INNER} to #{MAX_INNER} inner transactions, this one has #{count}"
       end
 
+      # Per account: the next sequence to hand out, and the lowest one still
+      # free after the explicit sequences seen so far. An inner transaction
+      # without a sequence gets the higher of the two, so it never repeats
+      # one given explicitly earlier in the Batch.
       next_sequence = {}
+      floor = Hash.new(0)
       prepared = raw.each_with_index.map do |wrapper, index|
         inner = unwrap(wrapper, index)
         check_inner!(inner, index)
@@ -51,13 +56,17 @@ module XRPL
         inner['Fee'] = '0'
         inner['SigningPubKey'] = ''
 
-        if inner['Sequence'].nil? && inner['TicketSequence'].nil?
+        if inner['TicketSequence'].nil?
           account = inner.fetch('Account') do
             raise ArgumentError, "RawTransactions[#{index}] has no Account"
           end
-          next_sequence[account] ||= first_sequence(batch, account, sequence_for)
-          inner['Sequence'] = next_sequence[account]
-          next_sequence[account] += 1
+          if inner['Sequence'].nil?
+            sequence = [next_sequence[account] || first_sequence(batch, account, sequence_for), floor[account]].max
+            inner['Sequence'] = sequence
+            next_sequence[account] = sequence + 1
+          else
+            floor[account] = [floor[account], Integer(inner['Sequence']) + 1].max
+          end
         end
 
         { 'RawTransaction' => inner }

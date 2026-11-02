@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `"0"` and an empty `SigningPubKey`; sequences follow `autofillBatchTxn` in
   xrpl.js: the outer account's inner transactions continue after the outer
   `Sequence`, every other account starts at its own, a given `Sequence` or
-  `TicketSequence` is kept. What the ledger would refuse raises
+  `TicketSequence` is kept, and the account's following inner transactions
+  continue after an explicit `Sequence` (xrpl.js hands it out a second time). What the ledger would refuse raises
   `ArgumentError` before anything is signed: not exactly one mode flag,
   fewer than two or more than eight inner transactions, an entry that is not
   a `RawTransaction` wrapper, a nested Batch, an inner signature, fee or key.
