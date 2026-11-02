@@ -17,8 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `ConfidentialOutstandingAmount`), which are decimal.
   - **Int32, Int64:** a signed decimal number.
 
-  A leading `+` is accepted where rippled accepts it (UInt8/16/32, Int32,
-  Int64), not for UInt64.
+  A leading `+` is accepted where rippled accepts it (UInt32, Int32,
+  Int64), not for UInt8, UInt16 or UInt64.
 
   This codec differed in two places, and both now follow rippled:
   - A UInt8/16/32 String in its full width was read as hex. `"00000065"`

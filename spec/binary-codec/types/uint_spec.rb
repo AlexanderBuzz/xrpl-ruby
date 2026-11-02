@@ -167,14 +167,17 @@ RSpec.describe BinaryCodec::Uint do
       end
     end
 
-    # beast::lexicalCast in rippled 3.4.1 skips a leading '+' for every
-    # integer type it reads; UInt64 is read with std::from_chars and takes none.
+    # rippled 3.4.1 reads UInt32 and Int32 with beast::lexicalCast, which
+    # skips a leading '+'. Its UInt8 and UInt16 parsers take a String that
+    # does not start with a digit as a name, so "+5" is refused there, and
+    # UInt64 is read with std::from_chars, which takes no sign.
     it 'accepts a leading plus sign where rippled does' do
       expect(BinaryCodec::Int32.from('+5').value_of).to eq(5)
       expect(BinaryCodec::Int64.from('+5').value_of).to eq(5)
       expect(uint32_class.from('+5').value_of).to eq(5)
-      expect(uint8_class.from('+5').value_of).to eq(5)
       expect(BinaryCodec.uint32_value('+5')).to eq(5)
+      expect { uint8_class.from('+5') }.to raise_error(ArgumentError)
+      expect { uint16_class.from('+5') }.to raise_error(ArgumentError)
       expect { uint64_class.from('+36d6') }.to raise_error(ArgumentError)
       expect { uint64_class.from('+100', 'MPTAmount') }.to raise_error(ArgumentError)
       expect { uint32_class.from('++5') }.to raise_error(ArgumentError)

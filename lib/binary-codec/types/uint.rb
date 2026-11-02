@@ -74,9 +74,11 @@ module BinaryCodec
         raise ArgumentError, "#{name} needs up to 16 hex digits, got #{value.inspect}"
       elsif width > 8 && valid_hex?(value) && value.length == width * 2
         Integer(value, 16)
-      elsif value.match?(/\A\+?\d+\z/)
-        # beast::lexicalCast skips a leading '+'; UInt64 above does not
-        # (std::from_chars), so it takes none.
+      elsif value.match?(/\A\d+\z/) || (width > 2 && value.match?(/\A\+\d+\z/))
+        # A leading '+' only from UInt32 up: rippled reads those with
+        # beast::lexicalCast, which skips it. Its UInt8 and UInt16 parsers
+        # take a String that does not start with a digit as a name and
+        # refuse "+5"; UInt64 above uses std::from_chars and takes no sign.
         Integer(value, 10)
       else
         raise ArgumentError, "#{name} needs a whole decimal number, got #{value.inspect}"
