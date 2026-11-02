@@ -111,27 +111,68 @@ RSpec.describe BinaryCodec::Uint do
   # rest (STParsedJSON, beast::lexicalCastThrow). The codec used to run every
   # String through #to_i, and wrote integers that do not fit the width.
   describe 'what it refuses' do
-    it 'accepts a whole decimal number, full-width hex and a name' do
+    # The readings of rippled 3.4.1 (STParsedJSON), which ripple-binary-codec
+    # shares. Until 0.9.0 this codec read a UInt8/16/32 String in its full
+    # width as hex ("00000065" was 101) and an unpadded UInt64 as decimal.
+    it 'reads a UInt8, UInt16 or UInt32 String as decimal, as rippled does' do
       expect(uint32_class.from('101').value_of).to eq(101)
-      expect(uint32_class.from('0000000A').value_of).to eq(10)
+      expect(uint32_class.from('00000065').value_of).to eq(65)
+      expect(uint16_class.from('0010').value_of).to eq(10)
+      expect(uint8_class.from('255').value_of).to eq(255)
       expect(uint16_class.from('Payment').value_of).to eq(0)
+      expect { uint32_class.from('0000000A') }.to raise_error(ArgumentError, /whole decimal number/)
+    end
+
+    it 'reads a UInt64 String as hex of any length, and as decimal in a base-10 field' do
       expect(uint64_class.from('00000000000036D6').value_of).to eq(0x36D6)
+      expect(uint64_class.from('36d6').value_of).to eq(0x36D6)
+      expect(uint64_class.from('100').value_of).to eq(0x100)
+      expect(uint64_class.from('100', 'IndexNext').value_of).to eq(0x100)
+      expect(uint64_class.from('100', 'MPTAmount').value_of).to eq(100)
+      expect { uint64_class.from('36d6', 'MPTAmount') }.to raise_error(ArgumentError, /base 10/)
+      expect { uint64_class.from('1' * 17) }.to raise_error(ArgumentError, /16 hex digits/)
+    end
+
+    it 'reads the field from the transaction when serialising' do
+      expect(BinaryCodec.json_to_binary('IndexNext' => '36d6')).to eq(BinaryCodec.json_to_binary('IndexNext' => '00000000000036D6'))
+      expect(BinaryCodec.json_to_binary('MPTAmount' => '100')).to end_with('0000000000000064')
+    end
+
+    # The name tables hang on the width; with the field known, only that
+    # field's own names count.
+    it 'takes a name only for the field it belongs to' do
+      expect(BinaryCodec.json_to_binary('TransactionType' => 'Payment')).to eq('120000')
+      expect(BinaryCodec.json_to_binary('PermissionValue' => 'TrustSet')).to eq(BinaryCodec.json_to_binary('PermissionValue' => 21))
+      expect { BinaryCodec.json_to_binary('TicketSequence' => 'TrustSet') }.to raise_error(ArgumentError)
+      expect { BinaryCodec.json_to_binary('TransferFee' => 'Payment') }.to raise_error(ArgumentError)
+      expect { BinaryCodec.json_to_binary('TickSize' => 'tesSUCCESS') }.to raise_error(ArgumentError)
+    end
+
+    it 'reads an Int32 or Int64 String as signed decimal' do
+      expect(BinaryCodec::Int32.from('-5').value_of).to eq(-5)
+      expect(BinaryCodec::Int64.from('-9').value_of).to eq(-9)
     end
 
     it 'refuses a String that is not a whole number' do
       %w[101junk 12.5 -1 0x10 abc].each do |bad|
         expect { uint32_class.from(bad) }.to raise_error(ArgumentError, /whole decimal number/), bad
       end
-      # rippled reads this as hex; it used to become 36 here
-      expect { uint64_class.from('36d6') }.to raise_error(ArgumentError)
+      expect { uint64_class.from('0x10') }.to raise_error(ArgumentError, /hex digits/)
     end
 
     it 'refuses a number that does not fit the width' do
       expect { uint32_class.from(2**32) }.to raise_error(ArgumentError, /0 to 4294967295/)
       expect { uint32_class.from('4294967296') }.to raise_error(ArgumentError, /0 to 4294967295/)
+      expect { uint64_class.from('1' * 21, 'MPTAmount') }.to raise_error(ArgumentError, /0 to /)
       expect { uint8_class.from(256) }.to raise_error(ArgumentError)
       expect { uint32_class.from(-1) }.to raise_error(ArgumentError)
       expect(uint32_class.from(2**32 - 1).to_hex).to eq('FFFFFFFF')
+    end
+
+    it 'refuses a value that is neither a String nor an Integer' do
+      [1.5, nil, [1]].each do |bad|
+        expect { uint32_class.from(bad) }.to raise_error(StandardError, /Cannot construct/), bad.inspect
+      end
     end
 
     it 'refuses a malformed Sequence in a transaction' do

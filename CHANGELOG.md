@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking
+
+- **UInt Strings are read the way rippled reads them.** rippled 3.4.1
+  (`STParsedJSON`) and ripple-binary-codec read these field types like this:
+  - **UInt8, UInt16, UInt32:** a whole decimal number.
+  - **UInt64:** hex of any length, except in the base-10 fields
+    (`MPTAmount`, `MaximumAmount`, `OutstandingAmount`, `LockedAmount`,
+    `ConfidentialOutstandingAmount`), which are decimal.
+  - **Int32, Int64:** a signed decimal number.
+
+  This codec differed in two places, and both now follow rippled:
+  - A UInt8/16/32 String in its full width was read as hex. `"00000065"`
+    as a `Sequence` was 101 here and is 65 in rippled; `"0000000A"` was 10
+    and now raises.
+  - An unpadded UInt64 String was read as decimal. `"100"` as `IndexNext`
+    was 100 and is `0x100` in rippled; `"36d6"` was 36.
+
+  Names count only for their own field: `TransactionType` and
+  `LedgerEntryType` take type names, `TransactionResult` result codes,
+  `PermissionValue` permission names. Before, any field of the same width
+  took them, so `TicketSequence: "TrustSet"` was ticket 21 and
+  `TransferFee: "Payment"` was 0.
+
+  Integers and the names in their own fields are unchanged, as is everything the codec decodes: it renders UInt8/16/32
+  as Integers and UInt64 as 16 hex digits, which round-trips. Only code that
+  passes UInt8/16/32 values as hex Strings, or unpadded UInt64 values meant
+  as decimal, is affected. Where ripple-binary-codec accepts a value,
+  `json_to_binary` now produces the same bytes; it also accepts decimal
+  UInt8/16 Strings, which rippled reads and ripple-binary-codec refuses.
+
 ### Added
 
 - **Permission delegation is verified on the Testnet** (XLS-75,
@@ -110,17 +140,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **UInt fields refuse malformed values.** A String is now either a whole
-  decimal number, as rippled reads it, or hex in the field's full width, as
-  this codec has always rendered it. Before, every other String went through
-  `#to_i`:
+- **UInt fields refuse malformed values.** A String that is not a number in
+  the field's reading (see Breaking) raises `ArgumentError`. Before, it went
+  through `#to_i`:
   - `"101junk"` became 101, `"12.5"` became 12.
   - `"abc"`, `"-1"` and `"0x10"` became 0.
-  - An unpadded UInt64 hex value such as `"36d6"` became 36.
 
   A number outside the field's range also raises now. Before, `2**32` as a
-  UInt32 came out five bytes long, and a negative number became 0. Both
-  cases raise `ArgumentError`.
+  UInt32 came out five bytes long, and a negative number became 0.
 - **`STObject.from_parser` raises on malformed input** instead of ending
   the object silently. The last `rescue => e; break` of the codec is gone;
   a truncated blob used to decode into a partial object.

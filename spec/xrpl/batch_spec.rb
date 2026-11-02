@@ -157,17 +157,16 @@ RSpec.describe XRPL::Batch do
         expect(fetched).to be_empty
       end
 
-      # The codec reads an 8-character String as hex: "0000000A" is 10, where
-      # #to_i gives 0. The checks use the codec's reading, the one that is
-      # serialised and signed.
+      # The checks read a String the way the codec encodes it, as rippled
+      # does: decimal. "00000065" is 65.
       it 'reads a Sequence given as a String the way the codec encodes it' do
-        expect { prepare(batch(payment(outer, 'Sequence' => '0000000A', 'TicketSequence' => 7), payment(outer))) }
+        expect { prepare(batch(payment(outer, 'Sequence' => '00000040', 'TicketSequence' => 7), payment(outer))) }
           .to raise_error(ArgumentError, /has both a Sequence and a TicketSequence/)
-        expect { prepare(batch(payment(outer), payment(outer), Sequence: '0000000A', TicketSequence: 9)) }
+        expect { prepare(batch(payment(outer), payment(outer), Sequence: '00000040', TicketSequence: 9)) }
           .to raise_error(ArgumentError, /The Batch has both/)
 
-        txs = inner(prepare(batch(payment(outer, 'Sequence' => '00000065'), payment(outer))))
-        expect(txs.map { |tx| tx['Sequence'] }).to eq(['00000065', 102])
+        txs = inner(prepare(batch(payment(outer, 'Sequence' => '00000165'), payment(outer))))
+        expect(txs.map { |tx| tx['Sequence'] }).to eq(['00000165', 166])
       end
 
       it 'refuses a malformed Sequence String instead of reading its leading digits' do

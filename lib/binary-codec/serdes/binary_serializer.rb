@@ -47,7 +47,13 @@ module BinaryCodec
       end
 
       field_header = field.header
-      associated_value = field.associated_type.from(value)
+      # A UInt reads a String by its field: a UInt64 is hex, or decimal in a
+      # base-10 field.
+      associated_value = if field.associated_type <= Uint
+                           field.associated_type.from(value, field.name)
+                         else
+                           field.associated_type.from(value)
+                         end
 
       @sink.put(field_header.to_bytes)
 
