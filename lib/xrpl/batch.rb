@@ -48,6 +48,10 @@ module XRPL
       # one given explicitly earlier in the Batch.
       next_sequence = {}
       floor = Hash.new(0)
+      take = lambda do |account|
+        [next_sequence[account] || first_sequence(batch, account, sequence_for), floor[account]].max
+      end
+
       prepared = raw.each_with_index.map do |wrapper, index|
         inner = unwrap(wrapper, index)
         check_inner!(inner, index)
@@ -56,17 +60,24 @@ module XRPL
         inner['Fee'] = '0'
         inner['SigningPubKey'] = ''
 
-        if inner['TicketSequence'].nil?
-          account = inner.fetch('Account') do
-            raise ArgumentError, "RawTransactions[#{index}] has no Account"
-          end
-          if inner['Sequence'].nil?
-            sequence = [next_sequence[account] || first_sequence(batch, account, sequence_for), floor[account]].max
-            inner['Sequence'] = sequence
-            next_sequence[account] = sequence + 1
-          else
-            floor[account] = [floor[account], Integer(inner['Sequence']) + 1].max
-          end
+        account = inner.fetch('Account') do
+          raise ArgumentError, "RawTransactions[#{index}] has no Account"
+        end
+        # A TicketCreate also takes a sequence for every ticket it creates.
+        reserved = inner['TransactionType'] == 'TicketCreate' ? Integer(inner['TicketCount'] || 0) : 0
+
+        if !inner['TicketSequence'].nil? && inner['Sequence'].to_i.zero?
+          # On a ticket: Sequence is a required field and 0 here. Only a
+          # TicketCreate still moves the account's sequence on, by the
+          # tickets it creates, starting at the current one.
+          inner['Sequence'] = 0
+          next_sequence[account] = take.call(account) + reserved if reserved.positive?
+        elsif inner['Sequence'].nil?
+          sequence = take.call(account)
+          inner['Sequence'] = sequence
+          next_sequence[account] = sequence + 1 + reserved
+        else
+          floor[account] = [floor[account], Integer(inner['Sequence']) + 1 + reserved].max
         end
 
         { 'RawTransaction' => inner }
