@@ -128,7 +128,7 @@ payment.flag_names                   # => ["tfPartialPayment"]
 `autofill` sets the fee the transaction type actually needs, following the
 same rules as xrpl.js: an `EscrowFinish` pays for the size of its
 `Fulfillment`, `AccountDelete`, `AMMCreate` and `VaultCreate` cost the owner
-reserve, a `Batch` pays for its inner transactions, and multisigning adds one
+reserve, a `Batch` pays for its signatures and its inner transactions, and multisigning adds one
 base fee per signature. Ordinary fees are capped at 2 XRP; pass
 `max_fee_drops:` to `Client.new` to change that. The rules are available on
 their own as `XRPL::Fee.calculate`.
@@ -152,6 +152,63 @@ entry.index                       # the entry's hash, as rippled reports it
 
 Every flag rippled defines is a constant on its type, e.g.
 `XRPL::LedgerEntry::AccountRoot::LSF_DEPOSIT_AUTH`.
+
+## Batch
+
+A `Batch` (XLS-56, enabled on Mainnet since 2026-10-09) applies up to eight
+inner transactions together. `autofill` prepares them: the `tfInnerBatchTxn`
+flag, `Fee "0"`, an empty `SigningPubKey` and their sequences. It also refuses
+a Batch the ledger would refuse. A Batch of one account is signed like any
+other transaction:
+
+```ruby
+batch = client.autofill({
+  'TransactionType' => 'Batch',
+  'Account' => alice.classic_address,
+  'Flags' => XRPL::Batch::FLAGS['Batch']['tfAllOrNothing'],
+  'RawTransactions' => [
+    { 'RawTransaction' => { 'TransactionType' => 'Payment', 'Account' => alice.classic_address,
+                            'Destination' => bob.classic_address, 'Amount' => '1000000' } },
+    { 'RawTransaction' => { 'TransactionType' => 'Payment', 'Account' => alice.classic_address,
+                            'Destination' => carol.classic_address, 'Amount' => '1000000' } }
+  ]
+})
+client.submit_and_wait(batch, wallet: alice, autofill: false)
+```
+
+When inner transactions come from other accounts, each of those accounts
+signs the finished Batch. The outer account signs it last. The signatures
+cover the inner transaction IDs, so the Batch has to be complete before
+anyone signs, and that includes its fee. `batch_signatures:` tells `autofill`
+how many signatures will be collected, one per other account:
+
+```ruby
+batch = client.autofill(swap, batch_signatures: 1)       # Alice pays Bob, Bob pays Alice
+signed = Wallet::Wallet.combine_batch_signers([bob.sign_batch(batch)])
+client.submit_and_wait(signed, wallet: alice, autofill: false)
+```
+
+- `sign_batch(batch, batch_account:)` signs for another account whose
+  regular key the wallet holds.
+- `multisign: true` signs as one member of that account's signer list.
+- `combine_batch_signers` sorts the entries the way rippled requires and
+  drops the outer account's entry. It also merges signatures from one signer
+  list into a single entry.
+- For an inner transaction with a `Delegate`, the delegate signs.
+
+**An outer `tesSUCCESS` does not mean the inner transactions succeeded.**
+Under `tfOnlyOne`, `tfUntilFailure` or `tfIndependent` some of them can fail
+while the Batch itself succeeds. Look up each one by its ID and check its own
+result:
+
+```ruby
+BinaryCodec.inner_transaction_ids(signed).each do |id|
+  result = client.tx_response(transaction: id).dig('result', 'meta', 'TransactionResult')
+  # an inner transaction that was not applied is not found at all
+end
+```
+
+`examples/batch.rb` runs both flows against the Testnet.
 
 ## Payment channel claims
 

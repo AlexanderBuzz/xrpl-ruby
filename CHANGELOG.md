@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Batch signing across accounts.** `Wallet#sign_batch` produces the
+  `BatchSigners` entry for an account with inner transactions in the Batch:
+  the wallet's own account, another account it is the regular key of
+  (`batch_account:`), or one signer of a signer list (`multisign:`). For a
+  delegated inner transaction the `Delegate` signs.
+  `Wallet.combine_batch_signers` merges the signed copies, given as Hashes
+  or hex. It sorts the entries by numeric AccountID, drops the outer
+  account's entry, and merges signatures from one signer list into a single
+  entry. It refuses copies of different Batches and an outer transaction that
+  is already signed.
+  `BinaryCodec.signing_batch_data` builds the payload rippled 3.4.1 verifies:
+  `BCH\0`, the outer account, the sequence value (the `TicketSequence` when
+  `Sequence` is 0), Flags, the inner transaction IDs and the signer accounts.
+  Signatures match the xrpl.js vectors byte for byte, and a swap between two
+  accounts validates on the Testnet. `examples/batch.rb` shows both flows.
+- **`BinaryCodec.transaction_id`** gives the ID of any transaction, signed or
+  unsigned (SHA512Half of `TXN\0` and its serialisation), and
+  `BinaryCodec.inner_transaction_ids` the IDs of a Batch's inner
+  transactions. `Wallet#sign` uses it for its `hash`.
 - **`autofill` prepares a Batch** (XLS-56, BatchV1_1 enabled on Mainnet
   since 2026-10-09). Every inner transaction gets `tfInnerBatchTxn`, `Fee`
   `"0"` and an empty `SigningPubKey`; sequences follow `autofillBatchTxn` in

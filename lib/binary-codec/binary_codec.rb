@@ -1,8 +1,11 @@
 # frozen_string_literal: true
 
+require 'digest'
+
 module BinaryCodec
   # Hash prefixes for serialization.
   HASH_PREFIX = {
+    transaction_id: 0x54584E00, # 'TXN\0'
     transaction_sig: 0x53545800, # 'STX\0'
     transaction_multi_sig: 0x534D5400, # 'SMT\0'
     validation: 0x56414C00, # 'VAL\0'
@@ -59,6 +62,77 @@ module BinaryCodec
         Uint64.from(Integer(amount)).to_bytes
     end
 
+    # The ID of a transaction: SHA512Half of 'TXN\0' and its serialisation.
+    # For a signed transaction that is its hash; for an unsigned one, such as
+    # the inner transaction of a Batch, it is the ID rippled gives it.
+    #
+    # @param transaction [Hash, String] the transaction, or its serialisation as hex
+    # @return [String] the ID, 64 uppercase hex characters
+    def transaction_id(transaction)
+      hex = transaction.is_a?(String) ? transaction : json_to_binary(transaction)
+      prefix = int_to_bytes(HASH_PREFIX[:transaction_id], 4).pack('C*')
+      Digest::SHA512.digest(prefix + [hex].pack('H*'))[0, 32].unpack1('H*').upcase
+    end
+
+    # The IDs of a Batch's inner transactions, in order.
+    #
+    # @param batch [Hash] the Batch
+    # @return [Array<String>] one ID per entry of RawTransactions
+    def inner_transaction_ids(batch)
+      Array(batch['RawTransactions']).map do |wrapper|
+        inner = wrapper.is_a?(::Hash) ? wrapper['RawTransaction'] : nil
+        inner = inner.to_h if defined?(XRPL::Transaction) && inner.is_a?(XRPL::Transaction)
+        raise ArgumentError, 'Every entry of RawTransactions needs a RawTransaction' unless inner.is_a?(::Hash)
+
+        transaction_id(inner)
+      end
+    end
+
+    # The bytes a BatchSigner signs over (rippled serializeBatch plus the
+    # signer suffix, rippled 3.4.1 STTx::checkBatchSingleSign and
+    # checkBatchMultiSign): 'BCH\0', the outer Account, the outer sequence
+    # value, Flags, the number of inner transactions and their IDs, then the
+    # BatchSigner's Account and, when multisigning, the signing account.
+    #
+    # Like encodeForSigningBatch in xrpl.js, this encodes what it is given: a
+    # Batch without a Sequence encodes the sequence value 0. Wallet#sign_batch
+    # refuses to sign one, because rippled requires the Sequence.
+    #
+    # @param batch [Hash] the Batch, with Account, Flags and its inner
+    #   transactions complete
+    # @param batch_account [String] the account of the BatchSigner entry
+    # @param signer_account [String, nil] the account of the signer in the
+    #   entry's Signers, when the entry is multisigned
+    # @return [Array<Integer>] the signing data
+    def signing_batch_data(batch, batch_account:, signer_account: nil)
+      unless batch['Account'] && batch.key?('Flags')
+        raise ArgumentError, 'A Batch needs Account and Flags before it can be signed'
+      end
+
+      ids = inner_transaction_ids(batch)
+      bytes = int_to_bytes(HASH_PREFIX[:batch], 4) +
+              account_bytes(batch['Account']) +
+              int_to_bytes(batch_sequence_value(batch), 4) +
+              int_to_bytes(Integer(batch['Flags']), 4) +
+              int_to_bytes(ids.size, 4)
+      ids.each { |id| bytes += hex_to_bytes(id) }
+      bytes += account_bytes(batch_account)
+      bytes += account_bytes(signer_account) if signer_account
+      bytes
+    end
+
+    # rippled's SeqProxy value: the Sequence, or the TicketSequence when the
+    # Sequence is 0 because a ticket is used.
+    #
+    # @param batch [Hash]
+    # @return [Integer]
+    def batch_sequence_value(batch)
+      sequence = batch['Sequence'].to_i
+      return sequence if sequence.positive?
+
+      batch['TicketSequence'].to_i
+    end
+
     # Generates signing data for a transaction.
     # @param transaction [Hash] The transaction to serialize.
     # @param prefix [Integer] The prefix to add to the serialized data.
@@ -80,6 +154,12 @@ module BinaryCodec
       serialized_bytes = st_object_class.from(transaction, filter).to_bytes
 
       prefix_bytes + serialized_bytes
+    end
+
+    private
+
+    def account_bytes(address)
+      AddressCodec::AddressCodec.new.decode_account_id(address).to_a
     end
   end
 end
