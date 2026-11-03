@@ -21,13 +21,11 @@ reviews:
     # Pause after this many reviewed commits on one PR (the default). Fixes
     # for a review round go out as one commit, so five is rarely reached.
     auto_pause_after_reviewed_commits: 5
-    # Release-only pull requests (version and CHANGELOG heading, no code) are
-    # titled "task: release <version>" and are not reviewed: #10 and #12 took
-    # a full review each and had no finding. Only this exact prefix - a
-    # version number or "release" alone also appears in titles of pull
-    # requests that change behaviour. "@coderabbitai review" still works.
-    ignore_title_keywords:
-      - "task: release"
+    # No ignore_title_keywords: it matches a keyword anywhere in the title,
+    # not as a prefix, so a pull request that changes behaviour could skip
+    # its review by accident. A release-only pull request (version and
+    # CHANGELOG heading, no code) opts out on its own with
+    # "@coderabbitai ignore" in its description instead.
 
   path_instructions:
     - path: "lib/binary-codec/**/*.rb"
