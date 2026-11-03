@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit reviews every pull request. This file tells it what the authority
+# is in this library - rippled, not another SDK - so that a finding can be
+# checked against it, and which files are verbatim or generated and are
+# reviewed for provenance only. Modelled on hardcastle/xrpl_php's file; the
+# reasoning is in LedgerDirect/LedgerDirect-CodeRabbit-Review-Ablauf.md.
+
+language: en-US
+
+reviews:
+  profile: chill
+
+  auto_review:
+    enabled: true
+    drafts: false
+    # Stacked pull requests (one built on another's branch) are reviewed too;
+    # without this, a PR whose base is not main is skipped.
+    base_branches:
+      - ".*"
+    # Pause after this many reviewed commits on one PR (the default). Fixes
+    # for a review round go out as one commit, so five is rarely reached.
+    auto_pause_after_reviewed_commits: 5
+    # No ignore_title_keywords: it matches a keyword anywhere in the title,
+    # not as a prefix, so a pull request that changes behaviour could skip
+    # its review by accident. A release-only pull request (version and
+    # CHANGELOG heading, no code) opts out on its own with
+    # "@coderabbitai ignore" in its description instead.
+
+  path_instructions:
+    - path: "lib/binary-codec/**/*.rb"
+      instructions: |
+        The XRP Ledger binary codec. The authority is rippled 3.4.1 - its
+        source (STParsedJSON, STObject, STArray, STInteger, Batch.h, STTx)
+        and the JSON a node returns - not xrpl.js, which implements it and
+        supplies the fixtures. ripple-binary-codec decides only where rippled
+        does not (UInt64 padding in JSON, CLAUDE.md §5.1).
+        A finding about which input is accepted or refused must say what
+        rippled does with it. Being stricter than rippled is not a goal:
+        refusing what a node accepts is a defect, not an improvement.
+        Every type's to_json(definitions, field_name) returns the codec value
+        (Integer, String, Array, Hash) for the codec; Ruby's JSON::State
+        calls are handled in SerializedType. Do not propose returning JSON
+        text from the two-argument form.
+    - path: "lib/binary-codec/enums/definitions.json"
+      instructions: |
+        Verbatim from a rippled 3.4.1 node's server_definitions (without its
+        status key); spec/binary-codec/definitions_spec.rb pins the digest.
+        Review the provenance - does the PR name the node and version, does
+        the pinned hash move with it - never the content. A single
+        hand-edited entry is a defect, a wholesale sync is not.
+    - path: "lib/xrpl/**/*.rb"
+      instructions: |
+        Client, fee rules, Batch (XLS-56), transaction and ledger entry
+        models. Protocol behaviour is judged against rippled 3.4.1; the fee
+        rules follow xrpl.js calculateFeePerTransactionType, and a departure
+        from it is documented where it is made. The models are generated from
+        definitions.json at load time; do not propose hand-written model
+        classes or field lists.
+    - path: "lib/wallet/**/*.rb"
+      instructions: |
+        Signing. Payloads are checked against rippled 3.4.1 (STTx::checkSign,
+        checkBatchSingleSign, checkBatchMultiSign) and byte for byte against
+        the xrpl.js vectors. A seed or private key must not reach a log, an
+        exception message or a fixture.
+    - path: "spec/binary-codec/fixtures/**"
+      instructions: |
+        Verbatim from ripple-binary-codec (codec-fixtures.json from tag
+        ripple-binary-codec@2.11.0). Not this project's data: do not comment
+        on the content. A change here needs the source tag in the PR.
+    - path: "spec/**/*_spec.rb"
+      instructions: |
+        Test vectors come from rippled, xrpl.js or ripple-binary-codec and
+        say which. Each fix is verified by reverting it (the spec fails
+        without the fix); a spec that passes either way is a finding.
+        Integration specs live in spec/integration, skip unless
+        XRPL_NETWORK=1, use fresh faucet wallets, and must not open a
+        network connection when skipped. A real-looking seed in a spec is a
+        defect unless it is a published test vector.
+    - path: "CHANGELOG.md"
+      instructions: |
+        Keep a Changelog. Check that every claim matches the code in this PR,
+        that breaking changes are under Breaking, and that examples still
+        hold - an example of input that the code now refuses is a finding.
