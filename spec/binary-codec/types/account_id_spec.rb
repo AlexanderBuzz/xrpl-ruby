@@ -19,6 +19,53 @@ RSpec.describe BinaryCodec::AccountId do
         expect(account_id.to_hex).to eq(hex_address)
       end
     end
+
+    # rippled's STAccount: an unset field has no bytes and renders as ''.
+    describe 'an unset field' do
+      let(:zero_address) { 'rrrrrrrrrrrrrrrrrrrrrhoLvTp' }
+
+      it 'is empty on the wire and in JSON' do
+        tx = { 'TransactionType' => 'AccountSet', 'Account' => '', 'Fee' => '0', 'Sequence' => 0, 'SigningPubKey' => '' }
+
+        hex = BinaryCodec.json_to_binary(tx)
+
+        expect(hex).to end_with('8100')
+        expect(BinaryCodec.binary_to_json(hex)).to eq(tx)
+        expect(BinaryCodec.json_to_binary(BinaryCodec.binary_to_json(hex))).to eq(hex)
+      end
+
+      it 'stays empty inside an array' do
+        tx = {
+          'TransactionType' => 'AccountSet',
+          'Account' => json_address,
+          'Signers' => [{ 'Signer' => { 'Account' => '', 'SigningPubKey' => 'AB', 'TxnSignature' => 'CD' } }]
+        }
+
+        hex = BinaryCodec.json_to_binary(tx)
+
+        expect(BinaryCodec.binary_to_json(hex)).to eq(tx)
+      end
+
+      it 'renders as an empty string through JSON.generate' do
+        expect(JSON.generate('Account' => account_id_class.unset)).to eq('{"Account":""}')
+      end
+
+      it 'keeps the zero account at its full length' do
+        hex = BinaryCodec.json_to_binary('Account' => zero_address)
+
+        expect(hex).to eq("8114#{'00' * 20}")
+        expect(BinaryCodec.binary_to_json(hex)).to eq('Account' => zero_address)
+      end
+
+      it 'stays 20 bytes at a fixed width position' do
+        expect(account_id_class.unset.to_hex).to eq('00' * 20)
+      end
+
+      it 'refuses any other field length' do
+        expect { BinaryCodec.binary_to_json("8113#{'00' * 19}") }.to raise_error(StandardError, /Invalid Hash length 19/)
+        expect { BinaryCodec.binary_to_json("8115#{'00' * 21}") }.to raise_error(StandardError, /Invalid Hash length 21/)
+      end
+    end
   end
 
 end

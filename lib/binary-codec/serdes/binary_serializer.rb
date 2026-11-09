@@ -73,8 +73,9 @@ module BinaryCodec
     def write_length_encoded(value, is_unl_modify_workaround = false)
       bytes = BytesList.new
 
-      unless is_unl_modify_workaround
-        # This part doesn't happen for the Account field in a UNLModify transaction
+      # An unset account field and the Account field in a UNLModify transaction
+      # have no bytes.
+      unless is_unl_modify_workaround || (value.is_a?(AccountId) && value.unset?)
         value.to_byte_sink(bytes)
       end
 

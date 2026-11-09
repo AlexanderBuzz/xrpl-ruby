@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`PaymentBurn` delegation.** The README no longer advises against it on
+  Mainnet and Testnet, where `fixCleanup3_4_0` is now enabled. On a network
+  without the amendment the warning still applies.
+
+### Fixed
+
+- **An unset account field.** An account field of length zero, as in a pseudo
+  transaction, decoded as the zero account and encoded back as 20 zero bytes,
+  which changes the bytes and the hash. Both directions now follow rippled's
+  `STAccount`: an empty field reads as `''`, and `''` writes an empty field.
+  The zero account `rrrrrrrrrrrrrrrrrrrrrhoLvTp` and accounts in fixed width
+  positions (an issuer, a path step) are unchanged. If you passed `''` to mean
+  the zero account, pass `rrrrrrrrrrrrrrrrrrrrrhoLvTp` instead.
+
 ## [0.9.1] - 2026-11-02
 
 A patch release with one fix: codec types now produce valid JSON inside
