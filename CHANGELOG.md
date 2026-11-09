@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-09
+
+A patch release with one codec fix: an account field of length zero now keeps
+its bytes through decoding and encoding, as in rippled. The README's advice on
+`PaymentBurn` is updated too. Codec fixtures 39/39 and 263/263, both ways; all
+10 Testnet specs pass on the release commit.
+
 ### Changed
 
 - **`PaymentBurn` delegation.** The README no longer advises against it on
@@ -19,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   transaction, decoded as the zero account and encoded back as 20 zero bytes,
   which changes the bytes and the hash. Both directions now follow rippled's
   `STAccount`: an empty field reads as `''`, and `''` writes an empty field.
-  The zero account `rrrrrrrrrrrrrrrrrrrrrhoLvTp` and accounts in fixed width
+  The zero account `rrrrrrrrrrrrrrrrrrrrrhoLvTp` and accounts in fixed-width
   positions (an issuer, a path step) are unchanged. If you passed `''` to mean
   the zero account, pass `rrrrrrrrrrrrrrrrrrrrrhoLvTp` instead.
 
