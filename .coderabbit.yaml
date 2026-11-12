@@ -21,6 +21,10 @@ reviews:
     # Pause after this many reviewed commits on one PR (the default). Fixes
     # for a review round go out as one commit, so five is rarely reached.
     auto_pause_after_reviewed_commits: 5
+    # Dependabot's pull requests (action SHAs, dependency versions) are not
+    # reviewed.
+    ignore_usernames:
+      - dependabot[bot]
     # No ignore_title_keywords: it matches a keyword anywhere in the title,
     # not as a prefix, so a pull request that changes behaviour could skip
     # its review by accident. A release-only pull request (version and

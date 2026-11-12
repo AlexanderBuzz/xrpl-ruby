@@ -17,7 +17,9 @@ Gem::Specification.new do |spec|
     "homepage_uri"    => "https://github.com/AlexanderBuzz/xrpl-ruby",
     "source_code_uri" => "https://github.com/AlexanderBuzz/xrpl-ruby",
     "changelog_uri"   => "https://github.com/AlexanderBuzz/xrpl-ruby/blob/main/CHANGELOG.md",
-    "bug_tracker_uri" => "https://github.com/AlexanderBuzz/xrpl-ruby/issues"
+    "bug_tracker_uri" => "https://github.com/AlexanderBuzz/xrpl-ruby/issues",
+    # rubygems.org accepts a new version only from an owner with MFA enabled.
+    "rubygems_mfa_required" => "true"
   }
 
   # Everything under lib/, not just the Ruby files. definitions.json is loaded
