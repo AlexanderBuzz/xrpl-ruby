@@ -289,6 +289,15 @@ Integration tests talk to the real Testnet and are skipped by default. Enable th
 XRPL_NETWORK=1 bundle exec rspec spec/integration
 ```
 
+There is no lockfile, so `bundle install` takes the newest versions the gemspec allows,
+as a user does. CI also runs the tests with the lowest allowed versions of the runtime
+dependencies, on Ruby 3.2:
+
+```sh
+BUNDLE_GEMFILE=gemfiles/lowest.gemfile bundle install
+BUNDLE_GEMFILE=gemfiles/lowest.gemfile bundle exec rspec --tag '~integration'
+```
+
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at
