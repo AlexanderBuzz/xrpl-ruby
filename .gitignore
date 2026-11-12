@@ -58,3 +58,6 @@ Session.vim
 Icon?
 ehthumbs.db
 Thumbs.db
+
+# Lockfiles of the extra Gemfiles under gemfiles/
+gemfiles/*.lock

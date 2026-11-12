@@ -53,6 +53,29 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+  # Without a lockfile the `test` job always resolves the newest versions the gemspec allows. This
+  # job checks the other end: the lowest version of every runtime dependency, read from the gemspec
+  # by gemfiles/lowest.gemfile, on the oldest supported Ruby.
+  lowest:
+    name: Ruby 3.2, lowest dependencies
+    runs-on: ubuntu-latest
+    env:
+      BUNDLE_GEMFILE: gemfiles/lowest.gemfile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Ruby 3.2
+        uses: ruby/setup-ruby@b3aaceaef7e0ee231b499e7b5f49c03fc1d32199 # v1.338.0
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Run unit tests
+        run: bundle exec rspec --tag '~integration'
+
   # Every external action is referenced by a full commit SHA, with its version as a comment: a tag
   # can be moved to other code, a commit cannot. Dependabot keeps the SHAs current.
   pinned:

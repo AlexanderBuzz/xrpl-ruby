@@ -6,12 +6,17 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # New releases wait a week before Dependabot proposes them.
+    cooldown:
+      default-days: 7
     groups:
       actions:
         patterns: ['*']
 
-  # The gem's dependencies (gemspec and Gemfile; there is no committed lock file).
+  # The gem's dependencies (gemspec and Gemfile; no lockfile, as RubyGems recommends for gems).
   - package-ecosystem: bundler
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7

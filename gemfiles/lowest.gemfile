@@ -1,0 +1,29 @@
+# frozen_string_literal: true
+
+# The lowest version of every runtime dependency that xrpl-ruby.gemspec allows, for the CI job
+# "Ruby 3.2, lowest dependencies". Users get whatever the gemspec allows, and the Gemfile (no
+# lockfile) always resolves the newest; this file checks the other end. The versions are read
+# from the gemspec, so a changed lower bound needs no change here. Locally:
+#
+#   BUNDLE_GEMFILE=gemfiles/lowest.gemfile bundle install
+#   BUNDLE_GEMFILE=gemfiles/lowest.gemfile bundle exec rspec --tag '~integration'
+
+source "https://rubygems.org"
+
+gem "xrpl-ruby", path: ".."
+
+spec = Gem::Specification.load(File.expand_path("../xrpl-ruby.gemspec", __dir__))
+spec.runtime_dependencies.each do |dependency|
+  lowest = dependency.requirement.requirements
+                     .select { |operator, _| [">=", "~>", "="].include?(operator) }
+                     .map { |_, version| version }
+                     .max
+  raise "#{dependency.name}: the gemspec gives no lower bound" unless lowest
+
+  gem dependency.name, "= #{lowest}"
+end
+
+group :test do
+  gem "rake"
+  gem "rspec"
+end
