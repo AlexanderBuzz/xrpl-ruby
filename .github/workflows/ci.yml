@@ -14,6 +14,11 @@ jobs:
   test:
     name: Ruby ${{ matrix.ruby }}
     runs-on: ubuntu-latest
+    # id-token: the coverage upload authenticates to Codecov with a short-lived OIDC token instead
+    # of a stored upload token.
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -43,15 +48,16 @@ jobs:
           COVERAGE: '1'
         run: bundle exec rspec --tag '~integration'
 
-      # Upload coverage once (from the newest stable Ruby) to avoid duplicate reports.
+      # Upload coverage once (from the newest stable Ruby) to avoid duplicate reports. OIDC needs
+      # no secret; a pull request from a fork gets no OIDC token, so the upload fails there
+      # without failing the run (fail_ci_if_error: false).
       - name: Upload coverage to Codecov
         if: matrix.ruby == '3.4'
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           files: ./coverage/coverage.xml
+          use_oidc: true
           fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   # Without a lockfile the `test` job always resolves the newest versions the gemspec allows. This
   # job checks the other end: the lowest version of every runtime dependency, read from the gemspec
