@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   does not compile with Ruby 3.2 on current toolchains: it appends `-std=c99` to
   `CFLAGS` unconditionally, while 1.4.0 adds its flags with `append_cflags`,
   which keeps only the ones the compiler accepts. The constraint is now `~> 1.4`.
+  `bundle update xrpl-ruby` moves `ed25519` along; if your own Gemfile pins it
+  to 1.3, relax that pin to `~> 1.4` first.
 
 ## [0.9.2] - 2026-11-09
 
