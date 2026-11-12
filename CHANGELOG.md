@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Gem metadata.** `rubygems_mfa_required` is set: rubygems.org accepts a new
   version of this gem only from an owner with multi-factor authentication enabled.
 
+### Fixed
+
+- **The `ed25519` lower bound.** The gemspec allowed `ed25519` 1.3.0, which
+  does not compile with Ruby 3.2 on current toolchains: it appends `-std=c99` to
+  `CFLAGS` unconditionally, while 1.4.0 adds its flags with `append_cflags`,
+  which keeps only the ones the compiler accepts. The constraint is now `~> 1.4`.
+
 ## [0.9.2] - 2026-11-09
 
 A patch release with one codec fix: an account field of length zero now keeps
