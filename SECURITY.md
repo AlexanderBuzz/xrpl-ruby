@@ -1,5 +1,18 @@
 # Security policy
 
+Security matters to us: xrpl-ruby signs transactions on the XRP Ledger. No matter how careful we are,
+vulnerabilities can still slip through, and we are grateful for every report that helps us find
+them.
+
+## Supported versions
+
+| Version | Supported |
+|---|---|
+| 0.9.x | yes |
+| older than 0.9 | no |
+
+Security fixes go into the latest 0.9.x release. Please check that the problem still occurs there.
+
 ## Reporting a vulnerability
 
 Please do not report a security problem in a public issue, pull request or discussion. Report it
@@ -12,19 +25,13 @@ privately, in one of two ways:
 Please include the version of the `xrpl-ruby` gem, what an attacker can do, and the steps to
 reproduce it.
 
-## What to expect
+## Responsible disclosure
 
-We confirm receipt within 5 business days and keep you informed while we investigate and fix the
-problem. Please give us the time to publish a fix before you disclose it. There is no bug bounty.
-
-## Supported versions
-
-| Version | Supported |
-|---|---|
-| 0.9.x | yes |
-| older than 0.9 | no |
-
-Security fixes go into the latest 0.9.x release. Please check that the problem still occurs there.
+We confirm receipt within 5 business days, investigate the report privately and keep you informed
+while we fix it. Please do not disclose the vulnerability until a fix is published and users have
+had time to upgrade. Test only against your own installations and on test networks, never against
+other people's systems or with funds on a main network, and refrain from anything that puts our
+users, the project or its maintainers at risk.
 
 ## Scope
 
@@ -32,4 +39,9 @@ In scope: this gem as published on rubygems.org (`xrpl-ruby`).
 
 Out of scope: the XRP Ledger and rippled themselves, third-party wallets, and the public test
 networks and faucets. A vulnerability in a dependency belongs to its maintainers; tell us as well if
-this gem is affected by it.
+xrpl-ruby is affected by it.
+
+## Thank you
+
+We appreciate every responsible report and credit you in the security advisory, unless you prefer
+not to be named.
