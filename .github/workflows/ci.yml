@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+# Nothing here writes to GitHub.
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Ruby ${{ matrix.ruby }}
