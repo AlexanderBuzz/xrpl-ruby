@@ -5,10 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.9.3] - 2026-11-12
+
+A patch release that corrects the dependency ranges: `bigdecimal` 4 is allowed,
+and `ed25519` starts at 1.4, the first version that compiles on current
+toolchains. Gem pushes now require MFA. No change under `lib/`; codec fixtures
+39/39 and 263/263, both ways; all 10 Testnet specs pass on the release commit.
 
 ### Changed
 
+- **`bigdecimal` 4.** The gemspec allows `bigdecimal` `>= 3.1, < 5.0` instead
+  of `~> 3.1`. CI runs the full suite with bigdecimal 4.1.3 on Ruby 3.2 to 4.0
+  and with 3.1.0, the lowest allowed version, on Ruby 3.2.
 - **Gem metadata.** `rubygems_mfa_required` is set: rubygems.org accepts a new
   version of this gem only from an owner with multi-factor authentication enabled.
 
